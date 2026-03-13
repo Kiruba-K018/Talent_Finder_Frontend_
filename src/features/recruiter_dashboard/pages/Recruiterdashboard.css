@@ -325,3 +325,115 @@ body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(
   .rd-stats-bar { grid-template-columns: 1fr 1fr; }
   .rd-profile-info { display: none; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   APPEND THIS TO Recruiterdashboard.css
+   New classes for: version badge, edit icon, primary tab strip (Open/My/All)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Job card title row (title + version badge inline) ── */
+.rd-job-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Version badge ── */
+.rd-version-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: .1rem .45rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* ── Badges wrapper (status badge + edit icon, right-aligned) ── */
+.rd-job-card__badges {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ── Edit icon button on job card ── */
+.rd-edit-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all .18s;
+  flex-shrink: 0;
+}
+.rd-edit-icon-btn:hover {
+  color: #2563eb;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+/* ── Primary tab strip: Open / My Posts / All ── */
+.rd-tab-group {
+  display: flex;
+  gap: .25rem;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: .25rem;
+}
+.rd-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .38rem .85rem;
+  border: none;
+  border-radius: 7px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+.rd-tab:hover { color: #1e3a8a; background: rgba(59,130,246,.07); }
+.rd-tab--active {
+  background: white;
+  color: #1d4ed8;
+  box-shadow: 0 1px 4px rgba(15,23,42,.1), 0 0 0 1px rgba(59,130,246,.15);
+}
+.rd-tab-count {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+/* ── Controls layout: now has 3 rows on small screens ── */
+.rd-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+/* Give the tab group its own line on medium screens */
+@media (max-width: 860px) {
+  .rd-tab-group { order: -1; width: 100%; justify-content: flex-start; }
+}

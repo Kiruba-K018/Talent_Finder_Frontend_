@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../hooks/hooks';
 import { loginThunk, forgotPasswordThunk } from '../slices/authThunks';
 import { clearError } from '../slices/authSlice';
+import { registerApi } from '../services/authApi';
 import './Loginpage.css';
 
 type Mode = 'login' | 'forgot';
@@ -225,6 +226,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onForgotPasswordRequested }) => {
                     </>
                   )}
                 </button>
+
+                <div className="tf-form-footer">
+                  Don't have an account?
+                  <button
+                    type="button"
+                    className="tf-link-btn"
+                    onClick={() => window.open('/register', '_blank')}
+                    style={{ padding: '0 .4rem' }}
+                  >
+                    Create one
+                  </button>
+                </div>
               </form>
             </>
           ) : (

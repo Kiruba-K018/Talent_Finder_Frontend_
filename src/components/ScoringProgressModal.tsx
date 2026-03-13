@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@hooks';
-import { fetchSourceRun, startPolling, stopPolling } from '@redux';
+import { fetchSourceRun, startPolling, stopPolling } from '@redux/slices/sourceRunSlice';
 import { Card } from './Card';
 import { Icon } from './Icon';
 import type { SourceRun } from '@types';

@@ -5,6 +5,12 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  name: string;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -20,6 +26,11 @@ export const loginApi = async (payload: LoginPayload): Promise<LoginResponse> =>
   const response = await api.post<LoginResponse>('/auth/login', formData, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
+  return response.data;
+};
+
+export const registerApi = async (payload: RegisterPayload): Promise<LoginResponse> => {
+  const response = await api.post<LoginResponse>('/auth/register', payload);
   return response.data;
 };
 

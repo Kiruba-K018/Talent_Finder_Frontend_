@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScoredCandidate, updateCandidateNoteApi } from '../../../api/jobPostApi';
+import { ScoredCandidate, updateCandidateNoteApi } from '../../job_post/services/jobPostApi';
 import './Candidatedrawer.css';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   recruiterNote: string | null;
   onClose: () => void;
   onNoteSaved: (candidateId: string, note: string) => void;
+  isAdmin?: boolean;
 }
 
 const Badge: React.FC<{ label: string; variant?: 'blue' | 'gray' | 'green' | 'purple' }> = ({
@@ -61,41 +62,29 @@ const InfoIcon: React.FC<{ color?: string }> = ({ color = '#94a3b8' }) => (
   </svg>
 );
 
-// ── Score tooltip copy ────────────────────────────────────────────────────
 const SCORE_TOOLTIPS: Record<string, string> = {
+  completion:  "Completion Score — Measures how complete the candidate's profile is. Rewards having experience, education, skills, projects, and certifications filled in.",
+  recency:     "Recency Score — Rewards recent and relevant work experience. Candidates with current roles in the target domain score higher.",
+  skillMatch:  "Skill Match — Percentage of the job's required skills found in the candidate's resume. 100 = every required skill is present.",
+  ruleBased:   "Rule-Based Score — Deterministic score from structured rules: years of experience, required skills matched, education level, job title relevance.",
   ai:          "AI Score — GPT-evaluated holistic rating of the candidate's fit. Considers resume quality, role alignment, communication clarity, and overall impression.",
   confidence:  "Confidence Score — How certain the AI is about its evaluation. Higher scores mean the resume had enough data to make a reliable assessment.",
-  completion:  "Completion Score — Measures how complete the candidate's profile is. Rewards having experience, education, skills, projects, and certifications filled in.",
   aggregation: "Aggregated Score — Final weighted composite of all scoring signals. This is the primary ranking metric used to order candidates.",
-  ruleBased:   "Rule-Based Score — Deterministic score from structured rules: years of experience, required skills matched, education level, job title relevance.",
-  skillMatch:  "Skill Match — Percentage of the job's required skills found in the candidate's resume. 100 = every required skill is present.",
-  recency:     "Recency Score — Rewards recent and relevant work experience. Candidates with current roles in the target domain score higher.",
 };
 
-// ── ScoreRing ─────────────────────────────────────────────────────────────
-const ScoreRing: React.FC<{
-  score: number; label: string; color: string; size?: number; tooltipKey: string;
-}> = ({ score, label, color, size = 84, tooltipKey }) => {
-  const r = (size - 10) / 2;
-  const circ = 2 * Math.PI * r;
-  const filled = (Math.min(score, 100) / 100) * circ;
+// ── Completion badge for topbar ───────────────────────────────────────────
+const CompletionBadge: React.FC<{ score: number }> = ({ score }) => {
+  const pct = Math.min(score, 100);
+  const { color, bg, border, label } =
+    pct >= 70 ? { color: '#15803d', bg: '#dcfce7', border: '#bbf7d0', label: 'Strong' }
+  : pct >= 40 ? { color: '#b45309', bg: '#fef9c3', border: '#fde68a', label: 'Partial' }
+  :             { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Sparse'  };
   return (
-    <Tooltip text={SCORE_TOOLTIPS[tooltipKey]}>
-      <div className="cd-score-ring">
-        <div className="cd-score-ring__svg-wrap" style={{ width: size, height: size }}>
-          <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
-            <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f1f5f9" strokeWidth="7" />
-            <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="7"
-              strokeDasharray={`${filled} ${circ}`} strokeLinecap="round" />
-          </svg>
-          <div className="cd-score-ring__center">
-            <span className="cd-score-ring__value" style={{ color }}>{Math.round(score)}</span>
-          </div>
-        </div>
-        <div className="cd-score-ring__footer">
-          <p className="cd-score-ring__name">{label}</p>
-          <InfoIcon color={color} />
-        </div>
+    <Tooltip text={SCORE_TOOLTIPS.completion}>
+      <div className="cd-completion-badge" style={{ background: bg, borderColor: border }}>
+        <span className="cd-completion-badge__pct" style={{ color }}>{Math.round(pct)}%</span>
+        <span className="cd-completion-badge__sep" style={{ background: border }} />
+        <span className="cd-completion-badge__label" style={{ color }}>Profile Completion</span>
       </div>
     </Tooltip>
   );
@@ -131,8 +120,8 @@ const FLAG_COLORS: Record<string, string> = {
 
 type Tab = 'scores' | 'overview' | 'experience' | 'projects' | 'education';
 
-const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, onClose, onNoteSaved }) => {
-  const [activeTab, setActiveTab] = useState<Tab>('scores');
+const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, onClose, onNoteSaved, isAdmin = false }) => {
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [noteText, setNoteText]   = useState(recruiterNote ?? '');
   const [editingNote, setEditingNote] = useState(false);
   const [savingNote, setSavingNote]   = useState(false);
@@ -163,13 +152,21 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
   const initials = c.candidate_name
     ?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) ?? '?';
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'overview',   label: 'Overview'   },
-    { key: 'experience', label: 'Experience' },
-    { key: 'projects',   label: 'Projects'   },
-    { key: 'education',  label: 'Education'  },
-    { key: 'scores',     label: 'Scores'     },
-  ];
+  const tabs: { key: Tab; label: string }[] = isAdmin
+    ? [
+        { key: 'overview',   label: 'Overview'   },
+        { key: 'experience', label: 'Experience' },
+        { key: 'projects',   label: 'Projects'   },
+        { key: 'education',  label: 'Education'  },
+      ]
+    : [
+        
+        { key: 'overview',   label: 'Overview'   },
+        { key: 'experience', label: 'Experience' },
+        { key: 'projects',   label: 'Projects'   },
+        { key: 'education',  label: 'Education'  },
+        { key: 'scores',     label: 'Scores'     },
+      ];
 
   const currentNote = noteText || recruiterNote;
 
@@ -179,13 +176,19 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
 
         {/* ── TOP BAR ── */}
         <div className="cd-topbar">
+          {/* Left: avatar + name */}
           <div className="cd-topbar__identity">
             <div className="cd-avatar-sm">{initials}</div>
-            <div>
+            <div className="cd-topbar__name-block">
               <p className="cd-topbar__name">{c.candidate_name}</p>
               <p className="cd-topbar__role">{c.title}</p>
             </div>
           </div>
+          {/* Centre: completion ring */}
+          {c.completion_score != null && (
+            <CompletionBadge score={c.completion_score} />
+          )}
+          {/* Right: actions */}
           <div className="cd-topbar__actions">
             {noteSaved && (
               <span className="cd-note-saved-toast">
@@ -376,35 +379,111 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
               </Section>
             )}
 
-            {/* AI SCORES */}
+            {/* AI SCORES — bars only, no rings */}
             {activeTab === 'scores' && (
               <>
-                <div className="cd-score-rings">
-                  <ScoreRing score={c.ai_score}          label="AI Score"   color="#2563eb" tooltipKey="ai"          />
-                  <ScoreRing score={c.confidence_score}  label="Confidence" color="#7c3aed" tooltipKey="confidence"  />
-                  <ScoreRing score={c.completion_score}  label="Completion" color="#16a34a" tooltipKey="completion"  />
-                  <ScoreRing score={c.aggregation_score} label="Aggregated" color="#d97706" tooltipKey="aggregation" />
-                </div>
                 <Section title="Score Breakdown">
                   <div className="cd-score-bars">
-                    <ScoreBar label="Rule-Based Score" score={c.rule_based_score}                    color="#2563eb" tooltipKey="ruleBased"   />
-                    <ScoreBar label="Skill Match"      score={Math.round(c.skill_match_score * 100)} color="#16a34a" tooltipKey="skillMatch"  />
-                    <ScoreBar label="Recency Score"    score={c.recency_score}                       color="#d97706" tooltipKey="recency"     />
-                    <ScoreBar label="Completion Score" score={c.completion_score}                    color="#7c3aed" tooltipKey="completion"  />
+                    {/* reordered: Completion → Recency → Skill Match → Rule-Based */}
+                    <ScoreBar label="Completion Score" score={c.completion_score}                    color="#7c3aed" tooltipKey="completion" />
+                    <ScoreBar label="Recency Score"    score={c.recency_score}                       color="#d97706" tooltipKey="recency"    />
+                    <ScoreBar label="Skill Match"      score={Math.round(c.skill_match_score * 100)} color="#16a34a" tooltipKey="skillMatch" />
+                    <ScoreBar label="Rule-Based Score" score={c.rule_based_score}                    color="#2563eb" tooltipKey="ruleBased"  />
                   </div>
                 </Section>
-                {c.ai_explanation && (
+
+                {(c.strengths?.length || c.weaknesses?.length || c.considerations?.length) && (
                   <Section title="AI Assessment">
-                    <div className="cd-ai-explanation">
-                      <div className="cd-ai-explanation__icon">
-                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 5v6m0 2v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
+                    <div className="cd-ai-assessment">
+                      <div className="cd-ai-assessment__grid">
+                        {c.strengths?.length ? (
+                          <div className="cd-ai-card cd-ai-card--strengths">
+                            <div className="cd-ai-card__header">
+                              <span className="cd-ai-card__icon" aria-hidden="true">
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                                  <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </span>
+                              <div>
+                                <h5 className="cd-ai-card__title">Strengths</h5>
+                                <p className="cd-ai-card__subtitle">What makes this candidate stand out</p>
+                              </div>
+                            </div>
+                            <ul className="cd-ai-list">
+                              {c.strengths.map((item, index) => (
+                                <li key={`strength-${index}`}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {c.weaknesses?.length ? (
+                          <div className="cd-ai-card cd-ai-card--weaknesses">
+                            <div className="cd-ai-card__header">
+                              <span className="cd-ai-card__icon" aria-hidden="true">
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                                  <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+                                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.72 3h16.92a2 2 0 0 0 1.72-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </span>
+                              <div>
+                                <h5 className="cd-ai-card__title">Weaknesses</h5>
+                                <p className="cd-ai-card__subtitle">Possible gaps or risk areas</p>
+                              </div>
+                            </div>
+                            <ul className="cd-ai-list">
+                              {c.weaknesses.map((item, index) => (
+                                <li key={`weakness-${index}`}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {c.considerations?.length ? (
+                          <div className="cd-ai-card cd-ai-card--considerations">
+                            <div className="cd-ai-card__header">
+                              <span className="cd-ai-card__icon" aria-hidden="true">
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+                                </svg>
+                              </span>
+                              <div>
+                                <h5 className="cd-ai-card__title">Considerations</h5>
+                                <p className="cd-ai-card__subtitle">Points worth validating with the recruiter</p>
+                              </div>
+                            </div>
+                            <ul className="cd-ai-list">
+                              {c.considerations.map((item, index) => (
+                                <li key={`consideration-${index}`}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
-                      <p>{c.ai_explanation}</p>
+
+                      <div className="cd-ai-meta">
+                        {c.ai_score != null && (
+                          <Tooltip text={SCORE_TOOLTIPS.ai}>
+                            <span className="cd-ai-meta__chip cd-ai-meta__chip--blue">
+                              <InfoIcon color="#2563eb" />
+                              AI fitness {Math.round(c.ai_score)}
+                            </span>
+                          </Tooltip>
+                        )}
+                        {c.confidence_score != null && (
+                          <Tooltip text={SCORE_TOOLTIPS.confidence}>
+                            <span className="cd-ai-meta__chip cd-ai-meta__chip--purple">
+                              <InfoIcon color="#7c3aed" />
+                              Confidence {Math.round(c.confidence_score)}
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
                     </div>
                   </Section>
                 )}
+
                 {c.flags?.length > 0 && (
                   <Section title="Flags">
                     <div className="cd-flags">

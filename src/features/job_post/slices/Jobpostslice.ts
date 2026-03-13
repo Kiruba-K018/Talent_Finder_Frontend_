@@ -13,6 +13,7 @@ export interface JobPost {
   location_preference: string;
   status: string;
   no_of_candidates_required: number;
+  openings?: number; // optional field for frontend convenience
   created_by: string;
   version: number;
 }

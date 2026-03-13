@@ -141,7 +141,9 @@ export interface CandidateDetail {
   ai_score: number;
   confidence_score: number;
   aggregation_score: number;
-  ai_explanation?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  considerations?: string[];
   recruiter_notes?: string;
   flags: Flag[];
   missing_fields: string[];

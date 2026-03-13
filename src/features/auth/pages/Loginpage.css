@@ -276,6 +276,20 @@ body {
 }
 .tf-link-btn:hover { color: var(--blue-800); text-decoration: underline; }
 
+/* Form footer */
+.tf-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+  font-size: .85rem;
+  color: var(--gray-600);
+}
+.tf-form-footer .tf-link-btn { font-size: .85rem; margin: 0; }
+
 /* Alerts */
 .tf-alert {
   display: flex;

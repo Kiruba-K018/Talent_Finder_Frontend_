@@ -9,7 +9,7 @@
 }
 @keyframes cd-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* ── DRAWER — widened from 520px → 680px ── */
+/* ── DRAWER ── */
 .cd-drawer {
   width: 680px; max-width: 100vw; height: 100vh;
   background: #fff;
@@ -30,7 +30,8 @@
   border-bottom: 1px solid #f1f5f9;
   flex-shrink: 0; gap: .75rem;
 }
-.cd-topbar__identity { display: flex; align-items: center; gap: .85rem; min-width: 0; }
+.cd-topbar__identity { display: flex; align-items: center; gap: .85rem; min-width: 0; flex: 1; }
+.cd-topbar__name-block { min-width: 0; }
 .cd-avatar-sm {
   width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
   background: linear-gradient(135deg, #1d4ed8, #3b82f6);
@@ -46,6 +47,23 @@
 .cd-topbar__role { font-size: .78rem; color: #2563eb; font-weight: 600; margin-top: .1rem; }
 .cd-topbar__actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
 
+/* ── COMPLETION BADGE (topbar) ── */
+.cd-completion-badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .28rem .65rem; border-radius: 999px;
+  border: 1.5px solid; flex-shrink: 0; cursor: help;
+}
+.cd-completion-badge__pct {
+  font-family: 'Sora', sans-serif; font-size: .8rem; font-weight: 800; line-height: 1;
+}
+.cd-completion-badge__sep {
+  width: 1px; height: 12px; border-radius: 999px; flex-shrink: 0;
+}
+.cd-completion-badge__label {
+  font-size: .72rem; font-weight: 700; font-family: 'Inter', sans-serif; white-space: nowrap;
+}
+
+/* Note toggle button */
 .cd-note-toggle-btn {
   display: inline-flex; align-items: center; gap: .38rem;
   padding: .38rem .75rem; border-radius: 8px;
@@ -57,6 +75,7 @@
 .cd-note-toggle-btn--active { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
 .cd-note-toggle-btn--active:hover { background: #fee2e2; }
 
+/* Close button */
 .cd-close-btn {
   width: 32px; height: 32px; border-radius: 8px;
   background: #f1f5f9; border: none; cursor: pointer;
@@ -65,6 +84,7 @@
 }
 .cd-close-btn:hover { background: #e2e8f0; color: #0f172a; }
 
+/* Saved toast */
 .cd-note-saved-toast {
   display: inline-flex; align-items: center; gap: .3rem;
   font-size: .72rem; font-weight: 600; color: #16a34a;
@@ -121,6 +141,7 @@
   border-radius: 50%; animation: cd-spin .7s linear infinite;
 }
 
+/* Saved note display */
 .cd-note-display {
   display: flex; align-items: flex-start; gap: .55rem; flex-shrink: 0;
   padding: .65rem 1.5rem; background: #f0f7ff; border-bottom: 1px solid #dbeafe;
@@ -182,18 +203,6 @@
 .cd-badge--green  { background: #dcfce7; color: #15803d; }
 .cd-badge--purple { background: #ede9fe; color: #6d28d9; }
 
-/* ── SCORE RINGS ── */
-.cd-score-rings {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: .75rem; padding: .5rem 0 1rem;
-}
-.cd-score-ring { display: flex; flex-direction: column; align-items: center; gap: .45rem; }
-.cd-score-ring__svg-wrap { position: relative; flex-shrink: 0; }
-.cd-score-ring__center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.cd-score-ring__value { font-family: 'Sora', sans-serif; font-size: .92rem; font-weight: 800; line-height: 1; }
-.cd-score-ring__footer { display: flex; align-items: center; gap: .3rem; justify-content: center; }
-.cd-score-ring__name { font-size: .67rem; color: #94a3b8; font-weight: 600; text-align: center; line-height: 1.3; }
-
 /* ── SCORE BARS ── */
 .cd-score-bars { display: flex; flex-direction: column; gap: .9rem; }
 .cd-score-bar { display: flex; flex-direction: column; gap: .38rem; }
@@ -226,16 +235,141 @@
   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
 }
 
-/* ── AI EXPLANATION ── */
-.cd-ai-explanation {
-  background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 12px;
-  padding: 1.1rem 1.25rem; display: flex; gap: .75rem; align-items: flex-start;
+/* ── AI ASSESSMENT ── */
+.cd-ai-assessment {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
-.cd-ai-explanation__icon {
-  width: 30px; height: 30px; border-radius: 8px; background: #dbeafe; color: #2563eb;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: .1rem;
+
+.cd-ai-assessment__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: .9rem;
 }
-.cd-ai-explanation p { font-size: .86rem; color: #1e40af; line-height: 1.65; }
+
+.cd-ai-card {
+  border-radius: 14px;
+  border: 1px solid;
+  padding: 1rem 1rem .95rem;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .04);
+}
+
+.cd-ai-card--strengths {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.cd-ai-card--weaknesses {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.cd-ai-card--considerations {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.cd-ai-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: .7rem;
+}
+
+.cd-ai-card__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cd-ai-card--strengths .cd-ai-card__icon {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.cd-ai-card--weaknesses .cd-ai-card__icon {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.cd-ai-card--considerations .cd-ai-card__icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.cd-ai-card__title {
+  font-size: .88rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.cd-ai-card__subtitle {
+  font-size: .75rem;
+  line-height: 1.45;
+  color: #64748b;
+  margin: .15rem 0 0;
+}
+
+.cd-ai-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.cd-ai-list li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: .83rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.cd-ai-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .52rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.cd-ai-card--strengths .cd-ai-list li::before {
+  background: #16a34a;
+}
+
+.cd-ai-card--weaknesses .cd-ai-list li::before {
+  background: #dc2626;
+}
+
+.cd-ai-card--considerations .cd-ai-list li::before {
+  background: #d97706;
+}
+
+/* fitness + confidence footnote chips */
+.cd-ai-meta {
+  display: flex; gap: .4rem; flex-wrap: wrap;
+  padding-top: .35rem;
+}
+.cd-ai-meta__chip {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .69rem; font-weight: 600; font-family: 'Inter', sans-serif;
+  padding: .18rem .5rem; border-radius: 999px;
+  cursor: help;
+}
+.cd-ai-meta__chip--blue   { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.cd-ai-meta__chip--purple { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
 
 /* ── FLAGS ── */
 .cd-flags { display: flex; flex-direction: column; gap: .5rem; }
@@ -291,5 +425,5 @@
 
 @media (max-width: 720px) {
   .cd-drawer { width: 100vw; }
-  .cd-score-rings { grid-template-columns: repeat(2, 1fr); }
+  .cd-ai-assessment__grid { grid-template-columns: 1fr; }
 }

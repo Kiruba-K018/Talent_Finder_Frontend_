@@ -1,5 +1,5 @@
-import api from './axiosInstance';
-import { JobPost } from '../features/job_post/slices/Jobpostslice';
+import api from '../../../api/axiosInstance';
+import { JobPost } from '../slices/Jobpostslice';
 
 export interface JobPostsResponse {
   job_posts: JobPost[];
@@ -37,6 +37,14 @@ export const createJobPostApi = async (payload: CreateJobPayload): Promise<JobPo
   return response.data;
 };
 
+export const updateJobPostApi = async (
+  jobId: string,
+  payload: CreateJobPayload
+): Promise<JobPost> => {
+  const response = await api.put<JobPost>(`/jobpost/${jobId}`, payload);
+  return response.data;
+};
+
 export const logoutApi = async (): Promise<void> => {
   await api.post('/auth/logout');
 };
@@ -46,7 +54,8 @@ export const getUserProfileApi = async (): Promise<any> => {
   return response.data;
 };
 
-// Shortlist
+// ── Shortlist ──────────────────────────────────────────────────────────────
+
 export interface ShortlistEntry {
   candidate_id: string;
   recruiter_notes: string | null;
@@ -60,12 +69,58 @@ export interface ShortlistResponse {
   total_candidates: number;
 }
 
-export const getShortlistApi = async (jobId: string): Promise<ShortlistResponse> => {
-  const response = await api.get<ShortlistResponse>(`/shortlist/${jobId}`);
+/**
+ * Fetch the shortlist for a job.
+ * When a version is supplied the versioned endpoint is used:
+ *   GET /shortlist/{job_id}/version/{version}
+ * Otherwise falls back to the latest:
+ *   GET /shortlist/{job_id}
+ */
+export const getShortlistApi = async (
+  jobId: string,
+  version?: number
+): Promise<ShortlistResponse> => {
+  const url = version != null
+    ? `/shortlist/${jobId}/version/${version}`
+    : `/shortlist/${jobId}`;
+  const response = await api.get<ShortlistResponse>(url);
   return response.data;
 };
 
-// Scored candidate detail (GET /api/v1/shortlist/{job_id}/{candidate_id})
+/**
+ * Versioned job snapshot — returns the job description / skills as they were
+ * at a specific version. Endpoint: GET /jobpost/{job_id}/version/{version}
+ * Falls back gracefully: if the endpoint doesn't exist yet we return null.
+ */
+export interface JobVersionSnapshot {
+  job_id: string;
+  version: number;
+  job_title: string;
+  description: string;
+  min_experience: number;
+  max_experience: number;
+  location_preference: string;
+  job_type: string;
+  required_skills: string[];
+  preferred_skills: string[];
+  min_educational_qualifications: string | string[];
+  no_of_candidates_required: number;
+}
+
+export const getJobVersionSnapshotApi = async (
+  jobId: string,
+  version: number
+): Promise<JobVersionSnapshot | null> => {
+  try {
+    const response = await api.get<JobVersionSnapshot>(`/jobpost/${jobId}/version/${version}`);
+    return response.data;
+  } catch {
+    return null;
+  }
+};
+
+// ── Scored candidate ───────────────────────────────────────────────────────
+
 export interface CandidateFlag {
   flag: string;
   reason: string;
@@ -105,7 +160,9 @@ export interface ScoredCandidate {
   skill_match_score: number;
   recency_score: number;
   ai_score: number;
-  ai_explanation: string;
+  strengths: string[];
+  weaknesses: string[];
+  considerations: string[];
   confidence_score: number;
   aggregation_score: number;
   flags: CandidateFlag[];
@@ -116,9 +173,7 @@ export const getCandidateScoreApi = async (
   jobId: string,
   candidateId: string
 ): Promise<ScoredCandidate> => {
-  const response = await api.get<ScoredCandidate>(
-    `/shortlist/${jobId}/${candidateId}`
-  );
+  const response = await api.get<ScoredCandidate>(`/shortlist/${jobId}/${candidateId}`);
   return response.data;
 };
 
@@ -134,7 +189,8 @@ export const updateCandidateNoteApi = async (
   return response.data;
 };
 
-// Candidate profile
+// ── Candidate profile ──────────────────────────────────────────────────────
+
 export interface CandidateExperience {
   experience_id: string;
   company_name: string;
