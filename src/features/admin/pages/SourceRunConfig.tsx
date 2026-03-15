@@ -1,20 +1,67 @@
 import React, { useEffect, useState } from 'react';
-import type { SourceRunConfig } from '../services/adminApi';
+import type { SourceRunConfig, SourceRun } from '../services/adminApi';
 import {
   getSourceRunConfigApi,
   createSourceRunConfigApi,
   updateSourceRunConfigApi,
   triggerSourceRunManuallyApi,
+  getSourceRunsHistoryApi,
 } from '../services/adminApi';
+
+type Tab = 'config' | 'history';
+
+// Progress Bar Modal Component
+const ProgressBarModal: React.FC<{
+  isOpen: boolean;
+  progress: number;
+  message: string;
+  onClose?: () => void;
+}> = ({ isOpen, progress, message, onClose }) => {
+  if (!isOpen) return null;
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && onClose) {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="progress-overlay" onClick={handleBackdropClick}>
+      <div className="progress-modal">
+        <div className="progress-modal__content">
+          <div className="progress-modal__spinner">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 2s linear infinite' }}>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25"/>
+              <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+          </div>
+          <h3 className="progress-modal__title">Processing Source Run</h3>
+          <p className="progress-modal__message">{message}</p>
+          <div className="progress-bar-container">
+            <div className="progress-bar">
+              <div className="progress-bar__fill" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="progress-bar__text">{progress}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const SourceRunConfig: React.FC = () => {
   const [config, setConfig] = useState<SourceRunConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [manualTriggering, setManualTriggering] = useState(false);
+  const [progressModalOpen, setProgressModalOpen] = useState(false);
+  const [progressPercent, setProgressPercent] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('config');
+  const [sourceRuns, setSourceRuns] = useState<SourceRun[]>([]);
+  const [sourceRunsLoading, setSourceRunsLoading] = useState(false);
 
   const [formData, setFormData] = useState<SourceRunConfig>({
     frequency: 'weekly',
@@ -69,6 +116,26 @@ const SourceRunConfig: React.FC = () => {
 
     fetchConfig();
   }, []);
+
+  // Fetch source runs when history tab is selected
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchSourceRuns();
+    }
+  }, [activeTab]);
+
+  const fetchSourceRuns = async () => {
+    try {
+      setSourceRunsLoading(true);
+      const runs = await getSourceRunsHistoryApi();
+      setSourceRuns(runs);
+    } catch (err) {
+      console.error('Failed to fetch source runs:', err);
+      setError('Failed to load source runs history');
+    } finally {
+      setSourceRunsLoading(false);
+    }
+  };
 
   const handleAddKeyword = () => {
     if (inputValues.keyword.trim()) {
@@ -219,19 +286,74 @@ const SourceRunConfig: React.FC = () => {
 
     try {
       setManualTriggering(true);
+      setProgressModalOpen(true);
+      setProgressPercent(10);
       setError(null);
+
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setProgressPercent((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + Math.random() * 20;
+        });
+      }, 800);
+
       const resp = await triggerSourceRunManuallyApi(config.id, config.max_profiles || 0);
-      // show backend message and status for better UX
-      setSuccessMessage(
-        `Trigger request sent (${resp.status}): ${resp.message}`
-      );
-      setTimeout(() => setSuccessMessage(null), 5000);
+      
+      clearInterval(progressInterval);
+      setProgressPercent(100);
+
+      // Keep modal open for another second then close
+      setTimeout(() => {
+        setProgressModalOpen(false);
+        setProgressPercent(0);
+        setSuccessMessage(`Trigger request sent (${resp.status}): ${resp.message}`);
+        setTimeout(() => setSuccessMessage(null), 5000);
+        // Refresh source runs if we're on that tab
+        if (activeTab === 'history') {
+          fetchSourceRuns();
+        }
+      }, 1000);
     } catch (err) {
+      clearInterval(undefined);
+      setProgressModalOpen(false);
+      setProgressPercent(0);
       setError('Failed to trigger source run. Please try again.');
       console.error(err);
     } finally {
       setManualTriggering(false);
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      completed: '#22c55e',
+      pending: '#f59e0b',
+      in_progress: '#3b82f6',
+      failed: '#ef4444',
+    };
+    return colors[status] || '#64748b';
+  };
+
+  const getStatusBgColor = (status: string) => {
+    const colors: Record<string, string> = {
+      completed: '#f0fdf4',
+      pending: '#fffbeb',
+      in_progress: '#eff6ff',
+      failed: '#fef2f2',
+    };
+    return colors[status] || '#f8fafc';
   };
 
   if (loading) {
@@ -245,24 +367,30 @@ const SourceRunConfig: React.FC = () => {
 
   return (
     <div className="source-run-config" id="source-config-section">
-      <div className="source-run-config__header">
-        <div>
-          <h2 className="admin-section__title">Source Configuration</h2>
-          <p className="source-run-config__subtitle">Configure parameters for automated candidate sourcing</p>
-        </div>
-        {!editMode && config && (
-          <button
-            className="btn btn--primary"
-            onClick={() => setEditMode(true)}
-            title="Edit configuration"
-          >
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Edit Configuration
-          </button>
-        )}
+      {/* Tab Navigation */}
+      <div className="source-config-tabs">
+        <button
+          className={`source-config-tab ${activeTab === 'config' ? 'source-config-tab--active' : ''}`}
+          onClick={() => setActiveTab('config')}
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="1" fill="currentColor"/>
+            <circle cx="19" cy="12" r="1" fill="currentColor"/>
+            <circle cx="5" cy="12" r="1" fill="currentColor"/>
+            <path d="M12 2v20M4 12h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          Configuration
+        </button>
+        <button
+          className={`source-config-tab ${activeTab === 'history' ? 'source-config-tab--active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+            <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          Run History ({sourceRuns.length})
+        </button>
       </div>
 
       {successMessage && (
@@ -284,489 +412,578 @@ const SourceRunConfig: React.FC = () => {
         </div>
       )}
 
-      {editMode ? (
-        <form onSubmit={handleSaveConfig} className="source-run-form">
-          {/* ── BASIC SETTINGS ── */}
-          <div className="form-section">
-            <h3 className="form-section__title">Basic Settings</h3>
-
-            <div className="form__row">
-              <div className="form__group">
-                <label className="form__label">Frequency *</label>
-                <select
-                  className="form__input"
-                  value={formData.frequency}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, frequency: e.target.value }))}
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-
-              <div className="form__group">
-                <label className="form__label">Platform *</label>
-                <select
-                  className="form__input"
-                  value={formData.platform}
-                  disabled
-                >
-                  <option value="linkedin">LinkedIn (Only available)</option>
-                </select>
-              </div>
+      {/* Configuration Tab */}
+      {activeTab === 'config' && (
+        <>
+          <div className="source-run-config__header">
+            <div>
+              <h2 className="admin-section__title">Source Configuration</h2>
+              <p className="source-run-config__subtitle">Configure parameters for automated candidate sourcing</p>
             </div>
-
-            <div className="form__group">
-              <label className="form__label">Department / Service *</label>
-              <input
-                type="text"
-                className="form__input"
-                placeholder="e.g., Engineering, Sales, HR"
-                value={formData.department}
-                onChange={(e) => setFormData((prev) => ({ ...prev, department: e.target.value }))}
-              />
-            </div>
-
-            <div className="form__row">
-              <div className="form__group">
-                <label className="form__label">Experience (Min) *</label>
-                <input
-                  type="number"
-                  className="form__input"
-                  min="0"
-                  value={formData.experience_min}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, experience_min: parseInt(e.target.value) || 0 }))}
-                />
-              </div>
-
-              <div className="form__group">
-                <label className="form__label">Experience (Max) *</label>
-                <input
-                  type="number"
-                  className="form__input"
-                  min="0"
-                  value={formData.experience_max}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, experience_max: parseInt(e.target.value) || 10 }))}
-                />
-              </div>
-            </div>
+            {!editMode && config && (
+              <button
+                className="btn btn--primary"
+                onClick={() => setEditMode(true)}
+                title="Edit configuration"
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Edit Configuration
+              </button>
+            )}
           </div>
 
-          {/* ── SCHEDULE & SEARCH DETAILS ── */}
-          <div className="form-section">
-            <h3 className="form-section__title">Schedule & Search Details</h3>
+          {editMode ? (
+            <form onSubmit={handleSaveConfig} className="source-run-form">
+              {/* ── BASIC SETTINGS ── */}
+              <div className="form-section">
+                <h3 className="form-section__title">Basic Settings</h3>
 
-            <div className="form__group">
-              <label className="form__label">Scheduled Time *</label>
-              <input
-                type="time"
-                className="form__input"
-                value={formData.scheduled_time}
-                onChange={(e) => setFormData((prev) => ({ ...prev, scheduled_time: e.target.value }))}
-              />
-            </div>
-
-            <div className="form__group">
-              <label className="form__label">Search Location *</label>
-              <input
-                type="text"
-                className="form__input"
-                placeholder="e.g., India, Remote"
-                value={formData.search_location}
-                onChange={(e) => setFormData((prev) => ({ ...prev, search_location: e.target.value }))}
-              />
-            </div>
-
-            <div className="form__group">
-              <label className="form__label">Max Profiles *</label>
-              <input
-                type="number"
-                className="form__input"
-                min="1"
-                value={formData.max_profiles}
-                onChange={(e) => setFormData((prev) => ({ ...prev, max_profiles: parseInt(e.target.value) || 0 }))}
-              />
-            </div>
-
-            <div className="form__group">
-              <label className="form__label">Search Skills</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  className="form__input"
-                  placeholder="e.g., Python, React"
-                  value={searchSkillInput}
-                  onChange={(e) => setSearchSkillInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSearchSkill())}
-                />
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--compact"
-                  onClick={handleAddSearchSkill}
-                >
-                  Add
-                </button>
-              </div>
-              <div className="tags-container">
-                {formData.search_skills?.map((skill, idx) => (
-                  <span key={idx} className="tag">
-                    {skill}
-                    <button type="button" onClick={() => handleRemoveSearchSkill(idx)}>
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── KEYWORDS ── */}
-          <div className="form-section">
-            <h3 className="form-section__title">Keywords</h3>
-            <div className="form__group">
-              <label className="form__label">Add Skill Keywords *</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  className="form__input"
-                  placeholder="e.g., Python, React, AWS"
-                  value={inputValues.keyword}
-                  onChange={(e) => setInputValues((prev) => ({ ...prev, keyword: e.target.value }))}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
-                />
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--compact"
-                  onClick={handleAddKeyword}
-                >
-                  Add
-                </button>
-              </div>
-              <div className="tags-container">
-                {formData.keywords?.map((keyword, idx) => (
-                  <span key={idx} className="tag">
-                    {keyword}
-                    <button type="button" onClick={() => handleRemoveKeyword(idx)}>
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="form__group">
-              <label className="form__label">Other Keywords</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  className="form__input"
-                  placeholder="e.g., agile, microservices"
-                  value={inputValues.otherKeyword}
-                  onChange={(e) => setInputValues((prev) => ({ ...prev, otherKeyword: e.target.value }))}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddOtherKeyword())}
-                />
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--compact"
-                  onClick={handleAddOtherKeyword}
-                >
-                  Add
-                </button>
-              </div>
-              <div className="tags-container">
-                {formData.other_keywords?.map((keyword, idx) => (
-                  <span key={idx} className="tag tag--secondary">
-                    {keyword}
-                    <button type="button" onClick={() => handleRemoveOtherKeyword(idx)}>
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── LOCATION ── */}
-          <div className="form-section">
-            <h3 className="form-section__title">Location Preferences</h3>
-            <div className="form__group">
-              <label className="form__label">Locations *</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  className="form__input"
-                  placeholder="e.g., Bangalore, San Francisco"
-                  value={inputValues.location}
-                  onChange={(e) => setInputValues((prev) => ({ ...prev, location: e.target.value }))}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLocation())}
-                />
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--compact"
-                  onClick={handleAddLocation}
-                >
-                  Add
-                </button>
-              </div>
-              <div className="tags-container">
-                {formData.locations?.map((location, idx) => (
-                  <span key={idx} className="tag">
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="currentColor"/>
-                      <circle cx="12" cy="10" r="3" fill="white"/>
-                    </svg>
-                    {location}
-                    <button type="button" onClick={() => handleRemoveLocation(idx)}>
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── EDUCATION ── */}
-          <div className="form-section">
-            <h3 className="form-section__title">Education Requirements</h3>
-            <div className="form__group">
-              <label className="form__label">Minimum Education Level</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  className="form__input"
-                  placeholder="e.g., Bachelor's, Master's, PhD"
-                  value={inputValues.education}
-                  onChange={(e) => setInputValues((prev) => ({ ...prev, education: e.target.value }))}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddEducation())}
-                />
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--compact"
-                  onClick={handleAddEducation}
-                >
-                  Add
-                </button>
-              </div>
-              <div className="tags-container">
-                {formData.education_requirements?.map((edu, idx) => (
-                  <span key={idx} className="tag tag--tertiary">
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
-                      <path d="M22 10v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      <path d="L1 6.52a2 2 0 0 1 1.88-2.52c.59 0 1.16.2 1.63.55L12 12l7.49-5.45c.47-.35 1.04-.55 1.63-.55a2 2 0 0 1 1.88 2.52l1.01 5.76" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                    {edu}
-                    <button type="button" onClick={() => handleRemoveEducation(idx)}>
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── STATUS ── */}
-          <div className="form-section">
-            <h3 className="form-section__title">Configuration Status</h3>
-            <label className="form__checkbox">
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-              />
-              <span>Enable automatic source runs on schedule</span>
-            </label>
-          </div>
-
-          {/* ── ACTIONS ── */}
-          <div className="form__actions">
-            <button type="submit" className="btn btn--primary" disabled={saving}>
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                <polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              {saving ? 'Saving...' : 'Save Configuration'}
-            </button>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={() => setEditMode(false)}
-              disabled={saving}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="source-run-display">
-          {config ? (
-            <>
-              <div className="config-card">
-                <h3 className="config-card__title">Current Configuration</h3>
-
-                <div className="config-info">
-                  <div className="config-row">
-                    <span className="config-label">Frequency</span>
-                    <span className="config-value">{config.frequency.charAt(0).toUpperCase() + config.frequency.slice(1)}</span>
+                <div className="form__row">
+                  <div className="form__group">
+                    <label className="form__label">Frequency *</label>
+                    <select
+                      className="form__input"
+                      value={formData.frequency}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, frequency: e.target.value }))}
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
                   </div>
-                  <div className="config-row">
-                    <span className="config-label">Platform</span>
-                    <span className="config-value">LinkedIn</span>
-                  </div>
-                  <div className="config-row">
-                    <span className="config-label">Department</span>
-                    <span className="config-value">{config.department || '—'}</span>
-                  </div>
-                  <div className="config-row">
-                    <span className="config-label">Experience Range</span>
-                    <span className="config-value">{config.experience_min} - {config.experience_max} years</span>
-                  </div>
-                  <div className="config-row">
-                    <span className="config-label">Scheduled Time</span>
-                    <span className="config-value">{config.scheduled_time || '—'}</span>
-                  </div>
-                  <div className="config-row">
-                    <span className="config-label">Search Location</span>
-                    <span className="config-value">{config.search_location || '—'}</span>
-                  </div>
-                  <div className="config-row">
-                    <span className="config-label">Max Profiles</span>
-                    <span className="config-value">{config.max_profiles || '—'}</span>
-                  </div>
-                  <div className="config-row">
-                    <span className="config-label">Status</span>
-                    <span className={`config-status ${config.is_active ? 'config-status--active' : 'config-status--inactive'}`}>
-                      {config.is_active ? '✓ Active' : '○ Inactive'}
-                    </span>
+
+                  <div className="form__group">
+                    <label className="form__label">Platform *</label>
+                    <select
+                      className="form__input"
+                      value={formData.platform}
+                      disabled
+                    >
+                      <option value="linkedin">LinkedIn (Only available)</option>
+                    </select>
                   </div>
                 </div>
 
-                <div className="config-tags-section">
-                  <h4>Keywords</h4>
+                <div className="form__group">
+                  <label className="form__label">Department / Service *</label>
+                  <input
+                    type="text"
+                    className="form__input"
+                    placeholder="e.g., Engineering, Sales, HR"
+                    value={formData.department}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, department: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form__row">
+                  <div className="form__group">
+                    <label className="form__label">Experience (Min) *</label>
+                    <input
+                      type="number"
+                      className="form__input"
+                      min="0"
+                      value={formData.experience_min}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, experience_min: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+
+                  <div className="form__group">
+                    <label className="form__label">Experience (Max) *</label>
+                    <input
+                      type="number"
+                      className="form__input"
+                      min="0"
+                      value={formData.experience_max}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, experience_max: parseInt(e.target.value) || 10 }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── SCHEDULE & SEARCH DETAILS ── */}
+              <div className="form-section">
+                <h3 className="form-section__title">Schedule & Search Details</h3>
+
+                <div className="form__group">
+                  <label className="form__label">Scheduled Time *</label>
+                  <input
+                    type="time"
+                    className="form__input"
+                    value={formData.scheduled_time}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, scheduled_time: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form__group">
+                  <label className="form__label">Search Location *</label>
+                  <input
+                    type="text"
+                    className="form__input"
+                    placeholder="e.g., India, Remote"
+                    value={formData.search_location}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, search_location: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form__group">
+                  <label className="form__label">Max Profiles *</label>
+                  <input
+                    type="number"
+                    className="form__input"
+                    min="1"
+                    value={formData.max_profiles}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, max_profiles: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+
+                <div className="form__group">
+                  <label className="form__label">Search Skills</label>
+                  <div className="input-with-button">
+                    <input
+                      type="text"
+                      className="form__input"
+                      placeholder="e.g., Python, React"
+                      value={searchSkillInput}
+                      onChange={(e) => setSearchSkillInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSearchSkill())}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--compact"
+                      onClick={handleAddSearchSkill}
+                    >
+                      Add
+                    </button>
+                  </div>
                   <div className="tags-container">
-                    {formData.keywords?.map((kw, idx) => (
-                      <span key={idx} className="tag">{kw}</span>
+                    {formData.search_skills?.map((skill, idx) => (
+                      <span key={idx} className="tag">
+                        {skill}
+                        <button type="button" onClick={() => handleRemoveSearchSkill(idx)}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </span>
                     ))}
                   </div>
                 </div>
+              </div>
 
-                {config.other_keywords?.length > 0 && (
-                  <div className="config-tags-section">
-                    <h4>Additional Keywords</h4>
-                    <div className="tags-container">
-                      {config.other_keywords.map((kw, idx) => (
-                        <span key={idx} className="tag tag--secondary">{kw}</span>
-                      ))}
-                    </div>
+              {/* ── KEYWORDS ── */}
+              <div className="form-section">
+                <h3 className="form-section__title">Keywords</h3>
+                <div className="form__group">
+                  <label className="form__label">Add Skill Keywords *</label>
+                  <div className="input-with-button">
+                    <input
+                      type="text"
+                      className="form__input"
+                      placeholder="e.g., Python, React, AWS"
+                      value={inputValues.keyword}
+                      onChange={(e) => setInputValues((prev) => ({ ...prev, keyword: e.target.value }))}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--compact"
+                      onClick={handleAddKeyword}
+                    >
+                      Add
+                    </button>
                   </div>
-                )}
-
-                {config.search_skills?.length > 0 && (
-                  <div className="config-tags-section">
-                    <h4>Search Skills</h4>
-                    <div className="tags-container">
-                      {config.search_skills.map((sk, idx) => (
-                        <span key={idx} className="tag">{sk}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="config-tags-section">
-                  <h4>Locations</h4>
                   <div className="tags-container">
-                    {config.locations?.map((loc, idx) => (
+                    {formData.keywords?.map((keyword, idx) => (
                       <span key={idx} className="tag">
-                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="currentColor"/>
-                          <circle cx="12" cy="10" r="3" fill="white"/>
-                        </svg>
-                        {loc}
+                        {keyword}
+                        <button type="button" onClick={() => handleRemoveKeyword(idx)}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
                       </span>
                     ))}
                   </div>
                 </div>
 
-                {config.education_requirements?.length > 0 && (
-                  <div className="config-tags-section">
-                    <h4>Education Requirements</h4>
-                    <div className="tags-container">
-                      {config.education_requirements.map((edu, idx) => (
-                        <span key={idx} className="tag tag--tertiary">
-                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
-                            <path d="M22 10v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            <path d="L1 6.52a2 2 0 0 1 1.88-2.52c.59 0 1.16.2 1.63.55L12 12l7.49-5.45c.47-.35 1.04-.55 1.63-.55a2 2 0 0 1 1.88 2.52l1.01 5.76" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
-                          {edu}
-                        </span>
-                      ))}
-                    </div>
+                <div className="form__group">
+                  <label className="form__label">Other Keywords</label>
+                  <div className="input-with-button">
+                    <input
+                      type="text"
+                      className="form__input"
+                      placeholder="e.g., agile, microservices"
+                      value={inputValues.otherKeyword}
+                      onChange={(e) => setInputValues((prev) => ({ ...prev, otherKeyword: e.target.value }))}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddOtherKeyword())}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--compact"
+                      onClick={handleAddOtherKeyword}
+                    >
+                      Add
+                    </button>
                   </div>
-                )}
+                  <div className="tags-container">
+                    {formData.other_keywords?.map((keyword, idx) => (
+                      <span key={idx} className="tag tag--secondary">
+                        {keyword}
+                        <button type="button" onClick={() => handleRemoveOtherKeyword(idx)}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* ── MANUAL TRIGGER ── */}
-              <div className="manual-trigger-section">
-                <div className="manual-trigger-header">
-                  <h3 className="admin-section__subtitle">Trigger Sourcing Run</h3>
-                  <p className="section-description">
-                    Click below to immediately source candidates based on the configuration. Candidates will be fetched from LinkedIn and added to the pool.
-                  </p>
+              {/* ── LOCATION ── */}
+              <div className="form-section">
+                <h3 className="form-section__title">Location Preferences</h3>
+                <div className="form__group">
+                  <label className="form__label">Locations *</label>
+                  <div className="input-with-button">
+                    <input
+                      type="text"
+                      className="form__input"
+                      placeholder="e.g., Bangalore, San Francisco"
+                      value={inputValues.location}
+                      onChange={(e) => setInputValues((prev) => ({ ...prev, location: e.target.value }))}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLocation())}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--compact"
+                      onClick={handleAddLocation}
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <div className="tags-container">
+                    {formData.locations?.map((location, idx) => (
+                      <span key={idx} className="tag">
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="currentColor"/>
+                          <circle cx="12" cy="10" r="3" fill="white"/>
+                        </svg>
+                        {location}
+                        <button type="button" onClick={() => handleRemoveLocation(idx)}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
+              </div>
+
+              {/* ── EDUCATION ── */}
+              <div className="form-section">
+                <h3 className="form-section__title">Education Requirements</h3>
+                <div className="form__group">
+                  <label className="form__label">Minimum Education Level</label>
+                  <div className="input-with-button">
+                    <input
+                      type="text"
+                      className="form__input"
+                      placeholder="e.g., Bachelor's, Master's, PhD"
+                      value={inputValues.education}
+                      onChange={(e) => setInputValues((prev) => ({ ...prev, education: e.target.value }))}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddEducation())}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--compact"
+                      onClick={handleAddEducation}
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <div className="tags-container">
+                    {formData.education_requirements?.map((edu, idx) => (
+                      <span key={idx} className="tag tag--tertiary">
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
+                          <path d="M22 10v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="L1 6.52a2 2 0 0 1 1.88-2.52c.59 0 1.16.2 1.63.55L12 12l7.49-5.45c.47-.35 1.04-.55 1.63-.55a2 2 0 0 1 1.88 2.52l1.01 5.76" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        {edu}
+                        <button type="button" onClick={() => handleRemoveEducation(idx)}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── STATUS ── */}
+              <div className="form-section">
+                <h3 className="form-section__title">Configuration Status</h3>
+                <label className="form__checkbox">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
+                  />
+                  <span>Enable automatic source runs on schedule</span>
+                </label>
+              </div>
+
+              {/* ── ACTIONS ── */}
+              <div className="form__actions">
+                <button type="submit" className="btn btn--primary" disabled={saving}>
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                  {saving ? 'Saving...' : 'Save Configuration'}
+                </button>
                 <button
-                  className="btn btn--success btn--large"
-                  onClick={handleManualTrigger}
-                  disabled={manualTriggering}
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setEditMode(false)}
+                  disabled={saving}
                 >
-                  {manualTriggering ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin .7s linear infinite' }}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"/>
-                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4"/>
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                      <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
-                    </svg>
-                  )}
-                  {manualTriggering ? 'Triggering Source Run...' : 'Trigger Sourcing Run Now'}
+                  Cancel
                 </button>
               </div>
-            </>
+            </form>
           ) : (
-            <div className="source-run-config__empty-state">
-              <div className="source-run-config__empty-icon">
-                <svg width="48" height="48" fill="none" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="1" fill="currentColor"/>
-                  <circle cx="19" cy="12" r="1" fill="currentColor"/>
-                  <circle cx="5" cy="12" r="1" fill="currentColor"/>
-                  <path d="M12 2v20M4 12h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                </svg>
+            <div className="source-run-display">
+              {config ? (
+                <>
+                  <div className="config-card">
+                    <h3 className="config-card__title">Current Configuration</h3>
+
+                    <div className="config-info">
+                      <div className="config-row">
+                        <span className="config-label">Frequency</span>
+                        <span className="config-value">{config.frequency.charAt(0).toUpperCase() + config.frequency.slice(1)}</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Platform</span>
+                        <span className="config-value">LinkedIn</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Department</span>
+                        <span className="config-value">{config.department || '—'}</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Experience Range</span>
+                        <span className="config-value">{config.experience_min} - {config.experience_max} years</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Scheduled Time</span>
+                        <span className="config-value">{config.scheduled_time || '—'}</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Search Location</span>
+                        <span className="config-value">{config.search_location || '—'}</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Max Profiles</span>
+                        <span className="config-value">{config.max_profiles || '—'}</span>
+                      </div>
+                      <div className="config-row">
+                        <span className="config-label">Status</span>
+                        <span className={`config-status ${config.is_active ? 'config-status--active' : 'config-status--inactive'}`}>
+                          {config.is_active ? '✓ Active' : '○ Inactive'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="config-tags-section">
+                      <h4>Keywords</h4>
+                      <div className="tags-container">
+                        {formData.keywords?.map((kw, idx) => (
+                          <span key={idx} className="tag">{kw}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {config.other_keywords?.length > 0 && (
+                      <div className="config-tags-section">
+                        <h4>Additional Keywords</h4>
+                        <div className="tags-container">
+                          {config.other_keywords.map((kw, idx) => (
+                            <span key={idx} className="tag tag--secondary">{kw}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {config.search_skills?.length > 0 && (
+                      <div className="config-tags-section">
+                        <h4>Search Skills</h4>
+                        <div className="tags-container">
+                          {config.search_skills.map((sk, idx) => (
+                            <span key={idx} className="tag">{sk}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="config-tags-section">
+                      <h4>Locations</h4>
+                      <div className="tags-container">
+                        {config.locations?.map((loc, idx) => (
+                          <span key={idx} className="tag">
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="currentColor"/>
+                              <circle cx="12" cy="10" r="3" fill="white"/>
+                            </svg>
+                            {loc}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {config.education_requirements?.length > 0 && (
+                      <div className="config-tags-section">
+                        <h4>Education Requirements</h4>
+                        <div className="tags-container">
+                          {config.education_requirements.map((edu, idx) => (
+                            <span key={idx} className="tag tag--tertiary">
+                              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
+                                <path d="M22 10v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                <path d="L1 6.52a2 2 0 0 1 1.88-2.52c.59 0 1.16.2 1.63.55L12 12l7.49-5.45c.47-.35 1.04-.55 1.63-.55a2 2 0 0 1 1.88 2.52l1.01 5.76" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              </svg>
+                              {edu}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── MANUAL TRIGGER ── */}
+                  <div className="manual-trigger-section">
+                    <div className="manual-trigger-header">
+                      <h3 className="admin-section__subtitle">Trigger Sourcing Run</h3>
+                      <p className="section-description">
+                        Click below to immediately source candidates based on the configuration. Candidates will be fetched from LinkedIn and added to the pool.
+                      </p>
+                    </div>
+                    <button
+                      className="btn btn--success btn--large"
+                      onClick={handleManualTrigger}
+                      disabled={manualTriggering}
+                    >
+                      {manualTriggering ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin .7s linear infinite' }}>
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"/>
+                          <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4"/>
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                          <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {manualTriggering ? 'Triggering Source Run...' : 'Trigger Sourcing Run Now'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="source-run-config__empty-state">
+                  <div className="source-run-config__empty-icon">
+                    <svg width="48" height="48" fill="none" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+                      <circle cx="19" cy="12" r="1" fill="currentColor"/>
+                      <circle cx="5" cy="12" r="1" fill="currentColor"/>
+                      <path d="M12 2v20M4 12h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <h3 className="source-run-config__empty-title">No Configuration Yet</h3>
+                  <p className="source-run-config__empty-description">
+                    Create your first configuration to start sourcing candidates automatically from LinkedIn based on your requirements.
+                  </p>
+                  <button className="btn btn--primary" onClick={() => setEditMode(true)}>
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    Create Configuration
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <div className="source-runs-history">
+          <h2 className="admin-section__title">Source Runs History</h2>
+          <p className="source-run-config__subtitle">View all source runs and their details</p>
+
+          {sourceRunsLoading ? (
+            <div className="loading-state">
+              <div className="admin-loading__spinner" />
+              <p>Loading source runs...</p>
+            </div>
+          ) : sourceRuns.length === 0 ? (
+            <div className="empty-state-admin">
+              <p>No source runs found yet.</p>
+            </div>
+          ) : (
+            <div className="source-runs-table">
+              <div className="table-header">
+                <div className="table-cell table-cell--wide">Run ID</div>
+                <div className="table-cell">Status</div>
+                <div className="table-cell">Started</div>
+                <div className="table-cell">Completed</div>
+                <div className="table-cell">Resumes Fetched</div>
+                <div className="table-cell">Location</div>
               </div>
-              <h3 className="source-run-config__empty-title">No Configuration Yet</h3>
-              <p className="source-run-config__empty-description">
-                Create your first configuration to start sourcing candidates automatically from LinkedIn based on your requirements.
-              </p>
-              <button className="btn btn--primary" onClick={() => setEditMode(true)}>
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                Create Configuration
-              </button>
+              {sourceRuns.map((run) => (
+                <div key={run.source_run_id} className="table-row">
+                  <div className="table-cell table-cell--wide">
+                    <code className="run-id">{run.source_run_id.substring(0, 8)}...</code>
+                  </div>
+                  <div className="table-cell">
+                    <span
+                      className="status-badge"
+                      style={{
+                        backgroundColor: getStatusBgColor(run.status),
+                        color: getStatusColor(run.status),
+                      }}
+                    >
+                      {run.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="table-cell">{formatDate(run.run_at)}</div>
+                  <div className="table-cell">
+                    {run.completed_at ? formatDate(run.completed_at) : '—'}
+                  </div>
+                  <div className="table-cell">
+                    <strong>{run.number_of_resume_fetched}</strong>
+                  </div>
+                  <div className="table-cell">{run.location || '—'}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
+
+      <ProgressBarModal
+        isOpen={progressModalOpen}
+        progress={Math.min(Math.round(progressPercent), 100)}
+        message="Sourcing candidates from LinkedIn..."
+        onClose={() => setProgressModalOpen(false)}
+      />
     </div>
   );
 };
 
 export default SourceRunConfig;
+

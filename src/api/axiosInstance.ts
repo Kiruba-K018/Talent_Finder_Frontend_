@@ -1,13 +1,18 @@
 import axios from 'axios';
 import { store } from '../redux/store';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: 'http://localhost:8000/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
+export const source_api = axios.create({
+  baseURL: 'http://localhost:8001/sourcing',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 // Attach access token to every request
 api.interceptors.request.use(
   (config) => {
@@ -32,4 +37,6 @@ api.interceptors.response.use(
   }
 );
 
+// Backward-compatible exports used across the codebase.
+export const apiClient = api;
 export default api;

@@ -73,6 +73,7 @@ const CreateJobModal: React.FC<Props> = ({ onClose, onCreated }) => {
     location_preference: '',
     job_type: 'Full-time',
     no_of_candidates_required: '',
+    openings: '',
   });
   const [requiredSkills, setRequiredSkills] = useState<string[]>([]);
   const [preferredSkills, setPreferredSkills] = useState<string[]>([]);
@@ -95,7 +96,7 @@ const CreateJobModal: React.FC<Props> = ({ onClose, onCreated }) => {
     if (!form.max_experience) e.max_experience = 'Required.';
     if (Number(form.min_experience) > Number(form.max_experience)) e.max_experience = 'Max must be ≥ min.';
     if (!form.location_preference.trim()) e.location_preference = 'Location is required.';
-    if (!form.no_of_candidates_required) e.no_of_candidates_required = 'Required.';
+    if (!form.openings || Number(form.openings) ==0) e.openings = 'Required';
     if (requiredSkills.length === 0) e.required_skills = 'Add at least one required skill.';
     if (educationQuals.length === 0) e.education = 'Add at least one qualification.';
     return e;
@@ -213,9 +214,14 @@ const CreateJobModal: React.FC<Props> = ({ onClose, onCreated }) => {
                   {errors.max_experience && <span className="cjm-error-msg">{errors.max_experience}</span>}
                 </div>
                 <div className={`cjm-field ${errors.no_of_candidates_required ? 'cjm-field--error' : ''}`}>
-                  <label>Openings <span className="cjm-req">*</span></label>
-                  <input type="number" min="1" value={form.no_of_candidates_required} onChange={(e) => set('no_of_candidates_required', e.target.value)} placeholder="1" />
+                  <label>No of profile to be shortlisted<span className="cjm-req">*</span></label>
+                  <input type="number" min="10" value={form.no_of_candidates_required} onChange={(e) => set('no_of_candidates_required', e.target.value)} placeholder="1" />
                   {errors.no_of_candidates_required && <span className="cjm-error-msg">{errors.no_of_candidates_required}</span>}
+                </div>
+                <div className={`cjm-field ${errors.openings ? 'cjm-field--error' : ''}`}>
+                  <label>No of openings<span className="cjm-req">*</span></label>
+                  <input type="number" min="1" value={form.openings} onChange={(e) => set('openings', e.target.value)} placeholder="1" />
+                  {errors.openings && <span className="cjm-error-msg">{errors.openings}</span>}
                 </div>
               </div>
 

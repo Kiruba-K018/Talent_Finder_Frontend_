@@ -1,7 +1,7 @@
 import { AppDispatch } from '../../../redux/store';
 import { fetchJobsStart, fetchJobsSuccess, fetchJobsFailure, createJobStart, createJobSuccess, createJobFailure } from './Jobpostslice';
 import { logout, setUser } from '../../auth/slices/authSlice';
-import { getJobPostsApi, createJobPostApi, logoutApi, getUserProfileApi, CreateJobPayload } from '../../../api/jobPostApi';
+import { getJobPostsApi, createJobPostApi, logoutApi, getUserProfileApi, CreateJobPayload } from '../services/jobPostApi';
 
 export const fetchJobsThunk = () => async (dispatch: AppDispatch) => {
   dispatch(fetchJobsStart());

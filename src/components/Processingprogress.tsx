@@ -5,15 +5,35 @@ interface ProcessingProgressProps {
   totalCandidates?: number;
 }
 
+
 const STAGES = [
-  { id: 0, label: 'Scanning resumes',     detail: 'Fetching stored candidate profiles',    duration: 10000 },
-  { id: 1, label: 'Matching skills',       detail: 'Comparing required & preferred skills against each applicant…', duration: 25000 },
-  { id: 2, label: 'Running AI scoring',    detail: 'Evaluating experience depth and role alignment…',               duration: 48000 },
+  { id: 0, label: 'Scanning resumes',     detail: 'Fetching stored candidate profiles',    duration: 15000 },
+  { id: 1, label: 'Matching skills',       detail: 'Comparing required & preferred skills against each applicant…', duration: 30000 },
+  { id: 2, label: 'Running AI scoring',    detail: 'Evaluating experience depth and role alignment…',               duration: 50000 },
   { id: 3, label: 'Ranking candidates',    detail: 'Sorting shortlist by aggregate score and flags…',               duration: 22000 },
   { id: 4, label: 'Finalising shortlist',  detail: 'Preparing candidate profiles for review…',                     duration: 15000 },
 ];
 
-const TOTAL_DURATION = STAGES.reduce((s, st) => s + st.duration, 0);
+const STAGE_WEIGHT_SUM = STAGES.reduce((s, st) => s + st.duration, 0);
+const BASELINE_CANDIDATES = 3;
+const BASELINE_TOTAL_DURATION_MS = 4* 60 * 1000; // 3 candidates => 2 minutes
+
+const getStageDurations = (candidateCount: number) => {
+  const safeCount = Math.max(1, candidateCount || 1);
+  const totalDuration = Math.round((safeCount / BASELINE_CANDIDATES) * BASELINE_TOTAL_DURATION_MS);
+  const stageDurations = STAGES.map((stage, index) => {
+    // Keep stage timing proportional to the original design.
+    if (index === STAGES.length - 1) {
+      const used = STAGES
+        .slice(0, -1)
+        .reduce((sum, s, i) => sum + Math.round((s.duration / STAGE_WEIGHT_SUM) * totalDuration), 0);
+      return Math.max(totalDuration - used, 1);
+    }
+    return Math.max(Math.round((stage.duration / STAGE_WEIGHT_SUM) * totalDuration), 1);
+  });
+
+  return { totalDuration, stageDurations };
+};
 
 export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisible, totalCandidates }) => {
   const [elapsed, setElapsed] = useState(0);
@@ -21,6 +41,8 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
   const startRef              = useRef<number>(Date.now());
   const rafRef                = useRef<number>(0);
   const dotRef                = useRef<ReturnType<typeof setInterval> | null>(null);
+  const candidateCount        = Math.max(1, totalCandidates ?? BASELINE_CANDIDATES);
+  const { totalDuration, stageDurations } = getStageDurations(candidateCount);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -29,8 +51,8 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
 
     const tick = () => {
       const now = Date.now() - startRef.current;
-      setElapsed(Math.min(now, TOTAL_DURATION));
-      if (now < TOTAL_DURATION) rafRef.current = requestAnimationFrame(tick);
+      setElapsed(Math.min(now, totalDuration));
+      if (now < totalDuration) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
 
@@ -42,23 +64,23 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
       cancelAnimationFrame(rafRef.current);
       if (dotRef.current) clearInterval(dotRef.current);
     };
-  }, [isVisible]);
+  }, [isVisible, totalDuration]);
 
   if (!isVisible) return null;
 
-  const globalPct = Math.min((elapsed / TOTAL_DURATION) * 100, 99);
+  const globalPct = Math.min((elapsed / totalDuration) * 100, 99);
 
   let stageIndex   = 0;
   let stageElapsed = elapsed;
   for (let i = 0; i < STAGES.length; i++) {
-    if (stageElapsed <= STAGES[i].duration) { stageIndex = i; break; }
-    stageElapsed -= STAGES[i].duration;
+    if (stageElapsed <= stageDurations[i]) { stageIndex = i; break; }
+    stageElapsed -= stageDurations[i];
     stageIndex = i + 1;
   }
   stageIndex = Math.min(stageIndex, STAGES.length - 1);
-  const stagePct     = Math.min((stageElapsed / STAGES[stageIndex].duration) * 100, 100);
+  const stagePct     = Math.min((stageElapsed / stageDurations[stageIndex]) * 100, 100);
   const currentStage = STAGES[stageIndex];
-  const secsLeft     = Math.max(0, Math.round((TOTAL_DURATION - elapsed) / 1000));
+  const secsLeft     = Math.max(0, Math.round((totalDuration - elapsed) / 1000));
   const minsLeft     = Math.floor(secsLeft / 60);
   const sLeft        = secsLeft % 60;
   const etaStr       = minsLeft > 0 ? `~${minsLeft}m ${sLeft}s left` : `~${sLeft}s left`;
@@ -179,10 +201,6 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
           );
         })}
       </div>
-
-      <p style={{ fontSize: '0.72rem', color: '#cbd5e1', textAlign: 'center', fontStyle: 'italic', marginTop: 'auto', paddingTop: '0.5rem' }}>
-        AI scoring takes a moment — grab a coffee ☕
-      </p>
 
       <style>{`
         @keyframes jd-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
