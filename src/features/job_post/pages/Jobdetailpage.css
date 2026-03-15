@@ -168,10 +168,34 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 1.1rem 1.4rem; border-bottom: 1px solid #f1f5f9;
   background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
-  flex-shrink: 0;
+  flex-shrink: 0; gap: 1rem;
 }
 .jd-shortlist-header h3 { font-family: 'Sora', sans-serif; font-size: .92rem; font-weight: 700; color: white; letter-spacing: -.01em; }
 .jd-shortlist-header p  { font-size: .76rem; color: rgba(255,255,255,.65); margin-top: .2rem; }
+
+.jd-shortlist-header-controls {
+  display: flex; align-items: center; gap: 0.7rem; flex-shrink: 0;
+}
+
+.jd-export-btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.85rem; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15); color: white;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 0.8rem; font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer; flex-shrink: 0;
+  transition: all 0.15s;
+}
+.jd-export-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+.jd-export-btn:active {
+  transform: translateY(0);
+}
+
 .jd-shortlist-count {
   width: 34px; height: 34px; border-radius: 9px;
   background: rgba(255,255,255,.15); color: white;
@@ -342,6 +366,125 @@
   width: 16px; height: 16px;
   border: 2px solid rgba(255,255,255,.3); border-top-color: white;
   border-radius: 50%; animation: jd-spin .7s linear infinite;
+}
+
+/* ── EXPORT MODAL ── */
+.jd-export-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 1rem;
+  animation: jd-fade-in 0.2s ease-out;
+}
+
+.jd-export-modal {
+  background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%; max-width: 450px; max-height: 90vh;
+  overflow-y: auto; animation: jd-slide-up 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.jd-export-modal__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.5rem; border-bottom: 1px solid #e2e8f0;
+  position: sticky; top: 0; background: white;
+  z-index: 10;
+}
+
+.jd-export-modal__header h3 {
+  font-family: 'Sora', sans-serif; font-size: 1.1rem; font-weight: 700;
+  color: #0f172a; margin: 0;
+}
+
+.jd-export-modal__close {
+  width: 32px; height: 32px; border: none; background: #f1f5f9;
+  color: #64748b; font-size: 1.5rem; cursor: pointer;
+  border-radius: 8px; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.jd-export-modal__close:hover:not(:disabled) {
+  background: #e2e8f0; color: #0f172a;
+}
+
+.jd-export-modal__close:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+
+.jd-export-modal__content {
+  padding: 1.5rem;
+}
+
+.jd-export-modal__subtitle {
+  font-size: 0.9rem; font-weight: 600; color: #334155;
+  margin-bottom: 1.25rem;
+}
+
+.jd-export-options {
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+.jd-export-option {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem; border: 2px solid #e2e8f0; border-radius: 12px;
+  background: white; cursor: pointer; transition: all 0.2s;
+  font-family: 'Inter', sans-serif; text-align: left;
+}
+
+.jd-export-option:hover:not(:disabled) {
+  border-color: #cbd5e1; background: #f8fafc;
+  transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.jd-export-option:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.jd-export-option:disabled {
+  opacity: 0.6; cursor: not-allowed;
+}
+
+.jd-export-option__icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.jd-export-option__text {
+  flex: 1;
+}
+
+.jd-export-option__text h4 {
+  font-family: 'Sora', sans-serif; font-size: 0.95rem; font-weight: 700;
+  color: #0f172a; margin: 0 0 0.25rem 0;
+}
+
+.jd-export-option__text p {
+  font-size: 0.8rem; color: #94a3b8; margin: 0;
+}
+
+.jd-export-modal__loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2rem; gap: 1rem; background: #f8fafc; border-top: 1px solid #e2e8f0;
+}
+
+.jd-export-modal__loading .jd-spinner {
+  width: 24px; height: 24px; border-width: 2px;
+}
+
+.jd-export-modal__loading p {
+  font-size: 0.9rem; color: #64748b; font-weight: 500;
+  margin: 0;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes jd-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes jd-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ── RESPONSIVE ── */

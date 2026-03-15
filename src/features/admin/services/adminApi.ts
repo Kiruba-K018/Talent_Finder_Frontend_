@@ -57,6 +57,10 @@ export const getAllSourcedCandidatesApi = async (): Promise<ScoredCandidate[]> =
   return response.data.candidates;
 };
 
+export const deleteSourcedCandidateApi = async (candidateId: string): Promise<void> => {
+  await api.delete(`/sourced-candidates/${candidateId}/`);
+};
+
 // ── Admin Dashboard Statistics ─────────────────────────────────────────────
 
 export interface DashboardStats {
@@ -140,4 +144,29 @@ export const triggerSourceRunManuallyApi = async (
     max_profiles: maxProfiles,
   });
   return response.data;
+};
+
+// ── Source Run History ─────────────────────────────────────────────────────
+
+export interface SourceRun {
+  source_run_id: string;
+  platform_id: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  schedule: string | null;
+  skills: string[] | null;
+  location: string | null;
+  number_of_resume_fetched: number;
+  run_at: string;
+  config_id: string;
+  error_message: string | null;
+  completed_at: string | null;
+}
+
+export const getSourceRunsHistoryApi = async (): Promise<SourceRun[]> => {
+  try {
+    const response = await source_api.get<SourceRun[]>('/source-runs/');
+    return Array.isArray(response.data) ? response.data : [];
+  } catch {
+    return [];
+  }
 };

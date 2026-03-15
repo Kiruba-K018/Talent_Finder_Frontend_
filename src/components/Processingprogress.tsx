@@ -16,7 +16,7 @@ const STAGES = [
 
 const STAGE_WEIGHT_SUM = STAGES.reduce((s, st) => s + st.duration, 0);
 const BASELINE_CANDIDATES = 3;
-const BASELINE_TOTAL_DURATION_MS = 2 * 60 * 1000; // 3 candidates => 2 minutes
+const BASELINE_TOTAL_DURATION_MS = 4* 60 * 1000; // 3 candidates => 2 minutes
 
 const getStageDurations = (candidateCount: number) => {
   const safeCount = Math.max(1, candidateCount || 1);

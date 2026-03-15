@@ -8,7 +8,7 @@ export const api = axios.create({
   },
 });
 export const source_api = axios.create({
-  baseURL: 'http://localhost:8001/trigger/',
+  baseURL: 'http://localhost:8001/sourcing',
   headers: {
     'Content-Type': 'application/json',
   },

@@ -106,6 +106,8 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
   const [closeError,        setCloseError]        = useState('');
   const [closed,            setClosed]            = useState(false);
   const [showEditModal,     setShowEditModal]      = useState(false);
+  const [showExportModal,   setShowExportModal]   = useState(false);
+  const [exportLoading,     setExportLoading]     = useState(false);
 
   const pollTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const isFirstFetch = useRef<Record<number, boolean>>({});
@@ -272,6 +274,280 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
     }));
   };
 
+  /* ── Generate candidate rows for export ── */
+  const generateCandidateRows = () => {
+    return vd?.entries?.map((entry, index) => {
+      const scored = vd.scoredMap[entry.candidate_id];
+      if (!scored) return null;
+
+      return {
+        rank: index + 1,
+        name: scored.candidate_name || '',
+        email: scored.candidate_email || '',
+        title: scored.title || '',
+        location: scored.location || '',
+        hardSkills: (scored.hard_skills ?? []).join('; ') || 'N/A',
+        softSkills: (scored.soft_skills ?? []).join('; ') || 'N/A',
+        completion: scored.completion_score ? Math.round(scored.completion_score) : 'N/A',
+        skillMatch: scored.skill_match_score ? Math.round(scored.skill_match_score) : 'N/A',
+        recency: scored.recency_score ? Math.round(scored.recency_score) : 'N/A',
+        ruleBased: scored.rule_based_score ? Math.round(scored.rule_based_score) : 'N/A',
+        aggregated: scored.aggregation_score ? Math.round(scored.aggregation_score) : 'N/A',
+        aiScore: scored.ai_score ? Math.round(scored.ai_score) : 'N/A',
+        confidence: scored.confidence_score ? Math.round(scored.confidence_score) : 'N/A',
+        notes: vd.notesMap[entry.candidate_id] ?? '',
+        linkedin: scored.contact_linkedin_url || 'N/A',
+      };
+    }).filter(Boolean);
+  };
+
+  /* ── PDF Export handler ── */
+  const handleExportPDF = async () => {
+    if (!vd?.entries || !job) return;
+    setExportLoading(true);
+
+    try {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-IN');
+      const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      const candidateRows = generateCandidateRows();
+      const reqSkills = normalizeSkills(job.required_skills as any);
+      const prefSkills = normalizeSkills(job.preferred_skills as any);
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shortlisted Candidates Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; color: #0f172a; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; }
+    .header h1 { color: #1e3a8a; margin: 0; font-size: 28px; }
+    .job-details { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
+    .job-details table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .job-details td { padding: 8px; }
+    .job-details td:first-child { font-weight: bold; width: 30%; }
+    .skills-section { margin-bottom: 20px; }
+    .skills-section strong { color: #0f172a; display: block; margin-bottom: 5px; }
+    .skills-section p { margin: 5px 0; color: #334155; font-size: 12px; }
+    .candidates-table { margin-top: 20px; }
+    .candidates-table h2 { color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 25px; }
+    .candidates-table table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .candidates-table thead { background: #1e3a8a; color: white; }
+    .candidates-table th { border: 1px solid #0f172a; padding: 10px; text-align: left; font-weight: bold; }
+    .candidates-table td { border: 1px solid #e2e8f0; padding: 8px; }
+    .candidates-table tbody tr:nth-child(even) { background: #f8fafc; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; font-size: 11px; color: #64748b; }
+    .footer p { margin: 5px 0; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SHORTLISTED CANDIDATES REPORT</h1>
+  </div>
+  
+  <div class="job-details">
+    <table>
+      <tr><td>Job Title:</td><td>${job.job_title}</td></tr>
+      <tr><td>Job Type:</td><td>${job.job_type || 'N/A'}</td></tr>
+      <tr><td>Location:</td><td>${job.location_preference || 'N/A'}</td></tr>
+      <tr><td>Experience:</td><td>${job.min_experience}-${job.max_experience} years</td></tr>
+      <tr><td>Shortlisted:</td><td>${vd.entries.length} candidate${vd.entries.length !== 1 ? 's' : ''}</td></tr>
+      <tr><td>Report Date:</td><td>${dateStr} ${timeStr}</td></tr>
+    </table>
+  </div>
+
+  ${reqSkills.length > 0 ? `<div class="skills-section"><strong>Required Skills:</strong><p>${reqSkills.join(', ')}</p></div>` : ''}
+  ${prefSkills.length > 0 ? `<div class="skills-section"><strong>Preferred Skills:</strong><p>${prefSkills.join(', ')}</p></div>` : ''}
+
+  <div class="candidates-table">
+    <h2>Shortlisted Candidates</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>Email</th><th>Title</th><th>Location</th><th>Hard Skills</th><th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${candidateRows.map((candidate: any, i: number) => `<tr>
+          <td>${i + 1}</td>
+          <td>${candidate.name}</td>
+          <td style="font-size: 10px;">${candidate.email}</td>
+          <td>${candidate.title}</td>
+          <td>${candidate.location}</td>
+          <td style="font-size: 10px;">${candidate.hardSkills}</td>
+          <td style="text-align: center; font-weight: bold;">${candidate.aggregated}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p><strong>Notes:</strong> Scores range from 0-100 where higher indicates better fit. Candidates ranked by Aggregated Score.</p>
+    <p><strong>Generated:</strong> ${dateStr} ${timeStr} | <strong>Exported by:</strong> ${currentUser?.first_name || 'User'}</p>
+  </div>
+  
+  <script>
+    window.print();
+  </script>
+</body>
+</html>
+      `;
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const fileName = `shortlist_${job.job_title.replace(/[^a-zA-Z0-9]/g, '_')}_${dateStr.replace(/\//g, '-')}.html`;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setExportLoading(false);
+      setShowExportModal(false);
+    }
+  };
+
+  /* ── CSV Export handler ── */
+  const handleExportCSV = () => {
+    if (!vd?.entries || !job) return;
+
+    const lines: string[] = [];
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN');
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+    // ── HEADER SECTION ──
+    lines.push('SHORTLISTED CANDIDATES REPORT');
+    lines.push('');
+    lines.push(`Job Title,${job.job_title}`);
+    lines.push(`Job Type,${job.job_type || 'N/A'}`);
+    lines.push(`Location,${job.location_preference || 'N/A'}`);
+    lines.push(`Experience,${job.min_experience}-${job.max_experience} years`);
+    lines.push(`Total Candidates Needed,${job.no_of_candidates_required}`);
+    lines.push(`Total Shortlisted,${vd.entries.length}`);
+    lines.push(`Report Generated,${dateStr} ${timeStr}`);
+    lines.push(`Job Version,v${job.version}`);
+    lines.push('');
+    lines.push('');
+
+    // ── REQUIRED SKILLS ──
+    const reqSkills = normalizeSkills(job.required_skills as any);
+    if (reqSkills.length > 0) {
+      lines.push('REQUIRED SKILLS');
+      lines.push(reqSkills.join(', '));
+      lines.push('');
+      lines.push('');
+    }
+
+    // ── PREFERRED SKILLS ──
+    const prefSkills = normalizeSkills(job.preferred_skills as any);
+    if (prefSkills.length > 0) {
+      lines.push('PREFERRED SKILLS');
+      lines.push(prefSkills.join(', '));
+      lines.push('');
+      lines.push('');
+    }
+
+    // ── CANDIDATES TABLE HEADER ──
+    lines.push('SHORTLISTED CANDIDATES DETAILED TABLE');
+    lines.push('');
+    const headers = [
+      'Rank',
+      'Candidate Name',
+      'Email',
+      'Current Title',
+      'Location',
+      'Hard Skills',
+      'Soft Skills',
+      'Profile Completion %',
+      'Skill Match Score',
+      'Recency Score',
+      'Rule Based Score',
+      'Aggregated Score',
+      'AI Score',
+      'Confidence %',
+      'Recruiter Notes',
+      'LinkedIn Profile',
+    ];
+    lines.push(headers.map((h) => `"${h}"`).join(','));
+
+    // ── CANDIDATE ROWS ──
+    vd.entries.forEach((entry, index) => {
+      const scored = vd.scoredMap[entry.candidate_id];
+      if (!scored) return;
+
+      const hardSkills = (scored.hard_skills ?? []).join('; ') || 'N/A';
+      const softSkills = (scored.soft_skills ?? []).join('; ') || 'N/A';
+      const notes = vd.notesMap[entry.candidate_id] ?? '';
+      const aggScore = scored.aggregation_score ? Math.round(scored.aggregation_score) : 'N/A';
+      const aiScore = scored.ai_score ? Math.round(scored.ai_score) : 'N/A';
+      const confidenceScore = scored.confidence_score ? Math.round(scored.confidence_score) : 'N/A';
+      const profileCompletion = scored.completion_score ? Math.round(scored.completion_score) : 'N/A';
+      const skillMatchScore = scored.skill_match_score ? Math.round(scored.skill_match_score) : 'N/A';
+      const recencyScore = scored.recency_score ? Math.round(scored.recency_score) : 'N/A';
+      const ruleBasedScore = scored.rule_based_score ? Math.round(scored.rule_based_score) : 'N/A';
+      const linkedinUrl = scored.contact_linkedin_url || 'N/A';
+
+      const row = [
+        index + 1,
+        scored.candidate_name || '',
+        scored.candidate_email || '',
+        scored.title || '',
+        scored.location || '',
+        hardSkills,
+        softSkills,
+        `${profileCompletion}%`,
+        skillMatchScore,
+        recencyScore,
+        ruleBasedScore,
+        aggScore,
+        aiScore,
+        `${confidenceScore}%`,
+        notes,
+        linkedinUrl,
+      ];
+
+      lines.push(
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(',')
+      );
+    });
+
+    lines.push('');
+    lines.push('');
+
+    // ── FOOTER SECTION ──
+    lines.push('NOTES');
+    lines.push('• Scores range from 0-100, where higher scores indicate better candidate fit');
+    lines.push('• Candidates are ranked by Aggregated Score (descending order)');
+    lines.push('• This report was generated automatically by Talent Finder');
+    lines.push('');
+    lines.push('EXPORT INFORMATION');
+    lines.push(`Exported by: ${currentUser?.first_name || 'User'}`);
+    lines.push(`Export Date: ${dateStr}`);
+    lines.push(`Export Time: ${timeStr}`);
+    lines.push(`Job ID: ${jobId}`);
+
+    // ── GENERATE & DOWNLOAD ──
+    const csvContent = lines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const fileName = `shortlist_${job.job_title.replace(/[^a-zA-Z0-9]/g, '_')}_${dateStr.replace(/\//g, '-')}.csv`;
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (jobLoading) return (
     <div className="jd-loading"><div className="jd-spinner" /><p>Loading job details…</p></div>
   );
@@ -420,10 +696,24 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
                     : `${vd?.total ?? 0} candidate${(vd?.total ?? 0) !== 1 ? 's' : ''} shortlisted`}
                 </p>
               </div>
-              <div className="jd-shortlist-count">
-                {vd?.showProgress
-                  ? <div className="jd-spinner jd-spinner--sm" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
-                  : (vd?.total ?? 0)}
+              <div className="jd-shortlist-header-controls">
+                {!vd?.showProgress && (vd?.entries?.length ?? 0) > 0 && (
+                  <button
+                    className="jd-export-btn"
+                    onClick={() => setShowExportModal(true)}
+                    title="Export candidates"
+                  >
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                      <path d="M12 2v12m0 0l-4-4m4 4l4-4M2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Export
+                  </button>
+                )}
+                <div className="jd-shortlist-count">
+                  {vd?.showProgress
+                    ? <div className="jd-spinner jd-spinner--sm" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
+                    : (vd?.total ?? 0)}
+                </div>
               </div>
             </div>
 
@@ -514,6 +804,76 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
                 {closing ? <span className="jd-btn-spinner" /> : 'Close Job'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Export Modal ── */}
+      {showExportModal && (
+        <div className="jd-export-overlay" onClick={() => !exportLoading && setShowExportModal(false)}>
+          <div className="jd-export-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="jd-export-modal__header">
+              <h3>Export Shortlist</h3>
+              <button
+                className="jd-export-modal__close"
+                onClick={() => !exportLoading && setShowExportModal(false)}
+                aria-label="Close"
+                disabled={exportLoading}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="jd-export-modal__content">
+              <p className="jd-export-modal__subtitle">Choose export format</p>
+              
+              <div className="jd-export-options">
+                {/* CSV Option */}
+                <button
+                  className="jd-export-option"
+                  onClick={() => {
+                    handleExportCSV();
+                    setShowExportModal(false);
+                  }}
+                  disabled={exportLoading}
+                >
+                  <div className="jd-export-option__icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
+                      <path d="M12 2v12m0 0l-4-4m4 4l4-4M2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <div className="jd-export-option__text">
+                    <h4>CSV Format</h4>
+                    <p>Compatible with Excel, Google Sheets</p>
+                  </div>
+                </button>
+
+                {/* PDF Option */}
+                <button
+                  className="jd-export-option"
+                  onClick={handleExportPDF}
+                  disabled={exportLoading}
+                >
+                  <div className="jd-export-option__icon" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M13 2v7h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <div className="jd-export-option__text">
+                    <h4>PDF Format</h4>
+                    <p>Professional report with formatted table</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {exportLoading && (
+              <div className="jd-export-modal__loading">
+                <div className="jd-spinner jd-spinner--sm" />
+                <p>Generating document...</p>
+              </div>
+            )}
           </div>
         </div>
       )}

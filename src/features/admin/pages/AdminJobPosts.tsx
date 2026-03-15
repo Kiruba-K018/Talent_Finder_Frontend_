@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAllJobPostsApi, getAllSourcedCandidatesApi } from '../services/adminApi';
+import { getAllJobPostsApi, getAllSourcedCandidatesApi, deleteSourcedCandidateApi } from '../services/adminApi';
 import { ScoredCandidate } from '../../job_post/services/jobPostApi';
 import { JobPost } from '../../job_post/slices/Jobpostslice';
 import JobDetailPage from '../../job_post/pages/Jobdetailpage';
@@ -86,6 +86,7 @@ const AdminJobPosts: React.FC = () => {
             candidates={candidates}
             onSelectJob={setSelectedJobId}
             onSelectCandidate={setSelectedCandidate}
+            onRefetchCandidates={fetchData}
           />
         </div>
       </div>
@@ -102,6 +103,7 @@ const AdminJobPosts: React.FC = () => {
       candidates={candidates}
       onSelectJob={setSelectedJobId}
       onSelectCandidate={setSelectedCandidate}
+      onRefetchCandidates={fetchData}
     />
   );
 };
@@ -115,6 +117,7 @@ interface AdminJobPostsContentProps {
   candidates: ScoredCandidate[];
   onSelectJob: (id: string) => void;
   onSelectCandidate: (candidate: ScoredCandidate) => void;
+  onRefetchCandidates?: () => Promise<void>;
 }
 
 const AdminJobPostsContent: React.FC<AdminJobPostsContentProps> = ({
@@ -126,7 +129,56 @@ const AdminJobPostsContent: React.FC<AdminJobPostsContentProps> = ({
   candidates,
   onSelectJob,
   onSelectCandidate,
+  onRefetchCandidates,
 }) => {
+  const [candidateSearch, setCandidateSearch] = React.useState('');
+  const [deleteConfirmModal, setDeleteConfirmModal] = React.useState<{ isOpen: boolean; candidateId: string | null; candidateName: string | null }>({
+    isOpen: false,
+    candidateId: null,
+    candidateName: null,
+  });
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  // Filter candidates based on search term
+  const filteredCandidates = React.useMemo(() => {
+    if (!candidateSearch.trim()) return candidates;
+
+    const searchLower = candidateSearch.toLowerCase();
+    return candidates.filter((candidate) => {
+      const matchName = candidate.candidate_name?.toLowerCase().includes(searchLower);
+      const matchEmail = candidate.candidate_email?.toLowerCase().includes(searchLower);
+      const matchTitle = candidate.title?.toLowerCase().includes(searchLower);
+      const matchLocation = candidate.location?.toLowerCase().includes(searchLower);
+      const matchSkills = candidate.hard_skills?.some((skill) =>
+        skill.toLowerCase().includes(searchLower)
+      );
+      return matchName || matchEmail || matchTitle || matchLocation || matchSkills;
+    });
+  }, [candidates, candidateSearch]);
+
+  const handleDeleteCandidate = async () => {
+    if (!deleteConfirmModal.candidateId) return;
+
+    try {
+      setDeletingId(deleteConfirmModal.candidateId);
+      setDeleteError(null);
+      await deleteSourcedCandidateApi(deleteConfirmModal.candidateId);
+      
+      // Refresh candidates list after deletion
+      if (onRefetchCandidates) {
+        await onRefetchCandidates();
+      }
+      
+      setDeleteConfirmModal({ isOpen: false, candidateId: null, candidateName: null });
+    } catch (err) {
+      setDeleteError('Failed to delete candidate. Please try again.');
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="admin-job-posts">
       <h2 className="admin-section__title">All Posts & Candidates</h2>
@@ -259,6 +311,39 @@ const AdminJobPostsContent: React.FC<AdminJobPostsContentProps> = ({
       {/* ── SOURCED CANDIDATES VIEW ── */}
       {viewTab === 'candidates' && (
         <div className="candidates-view">
+          {/* Search bar for candidates */}
+          {candidates.length > 0 && (
+            <div className="candidates-search-wrapper">
+              <div className="candidates-search">
+                <svg className="candidates-search-icon" width="16" height="16" fill="none" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                  <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <input
+                  type="text"
+                  className="candidates-search-input"
+                  placeholder="Search by name, skill, email, location..."
+                  value={candidateSearch}
+                  onChange={(e) => setCandidateSearch(e.target.value)}
+                />
+                {candidateSearch && (
+                  <button
+                    className="candidates-search-clear"
+                    onClick={() => setCandidateSearch('')}
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              {candidateSearch && (
+                <div className="search-results-info">
+                  Found <strong>{filteredCandidates.length}</strong> of <strong>{candidates.length}</strong> candidates
+                </div>
+              )}
+            </div>
+          )}
+
           {loading ? (
             <div className="loading-state">
               <div className="admin-loading__spinner" />
@@ -268,9 +353,23 @@ const AdminJobPostsContent: React.FC<AdminJobPostsContentProps> = ({
             <div className="empty-state-admin">
               <p>No sourced candidates found yet.</p>
             </div>
+          ) : filteredCandidates.length === 0 ? (
+            <div className="empty-state-admin">
+              <svg width="40" height="40" fill="none" viewBox="0 0 24 24" style={{ marginBottom: '12px', opacity: 0.5 }}>
+                <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <p>No candidates match your search "{candidateSearch}"</p>
+              <button
+                className="btn btn--secondary btn--compact"
+                onClick={() => setCandidateSearch('')}
+              >
+                Clear search
+              </button>
+            </div>
           ) : (
             <div className="candidates-list-admin">
-              {candidates.map((candidate) => (
+              {filteredCandidates.map((candidate) => (
                 <div key={candidate.candidate_id} className="admin-candidate-item">
                   <div className="admin-candidate-avatar">
                     {getInitials(candidate.candidate_name)}
@@ -320,14 +419,94 @@ const AdminJobPostsContent: React.FC<AdminJobPostsContentProps> = ({
                   </div>
 
                   <div className="admin-candidate-action">
-                    <button className="btn btn--small btn--primary" onClick={() => onSelectCandidate(candidate)}>
+                    <button 
+                      className="btn btn--small btn--primary" 
+                      onClick={() => onSelectCandidate(candidate)}
+                    >
                       View Profile
+                    </button>
+                    <button 
+                      className="btn btn--small btn--danger" 
+                      onClick={() => setDeleteConfirmModal({
+                        isOpen: true,
+                        candidateId: candidate.candidate_id,
+                        candidateName: candidate.candidate_name,
+                      })}
+                      title="Delete candidate"
+                    >
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6M5 6h14l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.isOpen && (
+        <div className="delete-confirm-overlay" onClick={() => setDeleteConfirmModal({ isOpen: false, candidateId: null, candidateName: null })}>
+          <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-confirm-modal__header">
+              <div className="delete-confirm-modal__icon">
+                <svg width="32" height="32" fill="none" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <h3 className="delete-confirm-modal__title">Delete Candidate</h3>
+            </div>
+
+            <div className="delete-confirm-modal__content">
+              <p>Are you sure you want to delete <strong>{deleteConfirmModal.candidateName}</strong>?</p>
+              <p className="delete-confirm-modal__warning">This action cannot be undone.</p>
+            </div>
+
+            {deleteError && (
+              <div className="admin-error-banner">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                {deleteError}
+              </div>
+            )}
+
+            <div className="delete-confirm-modal__footer">
+              <button 
+                className="btn btn--secondary" 
+                onClick={() => setDeleteConfirmModal({ isOpen: false, candidateId: null, candidateName: null })}
+                disabled={deletingId === deleteConfirmModal.candidateId}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn--danger" 
+                onClick={handleDeleteCandidate}
+                disabled={deletingId === deleteConfirmModal.candidateId}
+              >
+                {deletingId === deleteConfirmModal.candidateId ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', marginRight: '6px' }}>
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25"/>
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6M5 6h14l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
