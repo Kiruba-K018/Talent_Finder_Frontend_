@@ -3,11 +3,16 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+.vscode/
+node_modules/
 
 # C extensions
 *.so
-# Node.js dependencies
+
+
+
 node_modules/
+
 # Distribution / packaging
 .Python
 build/
