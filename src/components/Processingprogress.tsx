@@ -16,7 +16,7 @@ const STAGES = [
 
 const STAGE_WEIGHT_SUM = STAGES.reduce((s, st) => s + st.duration, 0);
 const BASELINE_CANDIDATES = 3;
-const BASELINE_TOTAL_DURATION_MS = 4* 60 * 1000; // 3 candidates => 2 minutes
+const BASELINE_TOTAL_DURATION_MS = 3 * 60 * 1000; // 3 candidates => 3 minutes
 
 const getStageDurations = (candidateCount: number) => {
   const safeCount = Math.max(1, candidateCount || 1);
@@ -90,7 +90,6 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
       flex: 1, overflowY: 'auto', padding: '1.4rem',
       display: 'flex', flexDirection: 'column', gap: '1rem',
     }}>
-      {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ flexShrink: 0, position: 'relative', width: 44, height: 44 }}>
           <svg width="44" height="44" viewBox="0 0 44 44">
@@ -152,7 +151,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
                   position: 'absolute', left: 11, top: 24, width: 2,
                   height: 'calc(100% - 14px)',
                   background: isDone ? '#bfdbfe' : '#f1f5f9',
-                  borderRadius: 2, transition: 'background 0.4s',
+                  borderRadius: 2, transition: 'background 0.3s',
                 }} />
               )}
               <div style={{

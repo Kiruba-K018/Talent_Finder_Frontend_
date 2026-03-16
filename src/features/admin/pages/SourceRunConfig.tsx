@@ -942,7 +942,7 @@ const SourceRunConfig: React.FC = () => {
                 <div className="table-cell">Started</div>
                 <div className="table-cell">Completed</div>
                 <div className="table-cell">Resumes Fetched</div>
-                <div className="table-cell">Location</div>
+    
               </div>
               {sourceRuns.map((run) => (
                 <div key={run.source_run_id} className="table-row">
@@ -967,7 +967,6 @@ const SourceRunConfig: React.FC = () => {
                   <div className="table-cell">
                     <strong>{run.number_of_resume_fetched}</strong>
                   </div>
-                  <div className="table-cell">{run.location || '—'}</div>
                 </div>
               ))}
             </div>

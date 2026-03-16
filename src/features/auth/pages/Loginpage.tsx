@@ -77,7 +77,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onForgotPasswordRequested }) => {
 
   return (
     <div className="tf-root">
-      {/* Left panel */}
       <div className="tf-panel-left">
         <div className="tf-panel-left__inner">
           <div className="tf-brand">
@@ -119,8 +118,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onForgotPasswordRequested }) => {
         <div className="tf-deco tf-deco--2" />
         <div className="tf-deco tf-deco--3" />
       </div>
-
-      {/* Right panel */}
       <div className="tf-panel-right">
         <div className="tf-form-wrapper">
 
@@ -226,18 +223,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onForgotPasswordRequested }) => {
                     </>
                   )}
                 </button>
-
-                <div className="tf-form-footer">
-                  Don't have an account?
-                  <button
-                    type="button"
-                    className="tf-link-btn"
-                    onClick={() => window.open('/register', '_blank')}
-                    style={{ padding: '0 .4rem' }}
-                  >
-                    Create one
-                  </button>
-                </div>
               </form>
             </>
           ) : (

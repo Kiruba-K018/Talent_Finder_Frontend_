@@ -110,7 +110,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
       {/* ── MAIN CONTENT ── */}
       <main className="admin-main">
-        {/* Header */}
         <header className="admin-header">
           <div className="admin-header__left">
             <button

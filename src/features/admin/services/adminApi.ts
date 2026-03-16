@@ -164,7 +164,7 @@ export interface SourceRun {
 
 export const getSourceRunsHistoryApi = async (): Promise<SourceRun[]> => {
   try {
-    const response = await source_api.get<SourceRun[]>('/source-runs/');
+    const response = await api.get<SourceRun[]>('/source-runs/');
     return Array.isArray(response.data) ? response.data : [];
   } catch {
     return [];

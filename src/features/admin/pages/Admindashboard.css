@@ -143,7 +143,6 @@ body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(
   margin-top: auto;
 }
 
-/* Header Profile */
 .admin-profile-wrap {
   position: relative;
 }
@@ -362,8 +361,6 @@ body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(
   margin: 0 auto;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-/* SECTIONS & CARDS */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 .admin-section__title {

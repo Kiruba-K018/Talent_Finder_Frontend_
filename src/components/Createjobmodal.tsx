@@ -263,8 +263,6 @@ const CreateJobModal: React.FC<Props> = ({ onClose, onCreated }) => {
                 </div>
               )}
             </div>
-
-            {/* Footer */}
             <div className="cjm-footer">
               <button type="button" className="cjm-cancel-btn" onClick={onClose}>Cancel</button>
               <button type="submit" className="cjm-submit-btn" disabled={creating}>
