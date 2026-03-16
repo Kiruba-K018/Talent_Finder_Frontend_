@@ -176,7 +176,6 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
 
         {/* ── TOP BAR ── */}
         <div className="cd-topbar">
-          {/* Left: avatar + name */}
           <div className="cd-topbar__identity">
             <div className="cd-avatar-sm">{initials}</div>
             <div className="cd-topbar__name-block">
@@ -188,7 +187,6 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
           {c.completion_score != null && (
             <CompletionBadge score={c.completion_score} />
           )}
-          {/* Right: actions */}
           <div className="cd-topbar__actions">
             {noteSaved && (
               <span className="cd-note-saved-toast">

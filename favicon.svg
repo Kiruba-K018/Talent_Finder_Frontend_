@@ -10,14 +10,10 @@
   
   <!-- People icon representing talents/recruiters -->
   <g transform="translate(90, 90)">
-    <!-- Left person circle -->
     <circle cx="-25" cy="-20" r="18" fill="white" opacity="0.9"/>
-    <!-- Left person body -->
     <path d="M -42 15 Q -42 5 -25 5 Q -8 5 -8 15 L -8 35 Q -8 40 -12 40 L -38 40 Q -42 40 -42 35 Z" fill="white" opacity="0.9"/>
     
-    <!-- Right person circle -->
     <circle cx="25" cy="-20" r="18" fill="white" opacity="0.85"/>
-    <!-- Right person body -->
     <path d="M 8 15 Q 8 5 25 5 Q 42 5 42 15 L 42 35 Q 42 40 38 40 L 12 40 Q 8 40 8 35 Z" fill="white" opacity="0.85"/>
     
     <!-- Center person (larger) -->

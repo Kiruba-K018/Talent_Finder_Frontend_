@@ -17,6 +17,7 @@ const UserManagement: React.FC = () => {
     name: '',
     password: '',
     confirm_password: '',
+    role: 'recruiter', // 'admin' or 'recruiter'
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -64,6 +65,10 @@ const UserManagement: React.FC = () => {
       errors.confirm_password = 'Passwords do not match';
     }
 
+    if (!formData.role) {
+      errors.role = 'Role is required';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -88,14 +93,14 @@ const UserManagement: React.FC = () => {
         email: formData.email,
         name: formData.name,
         password: formData.password,
-        role_id: 2, // Recruiter role
+        role_id: formData.role === 'admin' ? 1 : 2, // 1 for Admin, 2 for Recruiter
         org_id: adminOrgId,
       };
 
       const newUser = await createUserApi(payload);
       setUsers([...users, newUser]);
       setSuccessMessage(`User ${newUser.name} created successfully! Credentials sent to ${newUser.email}`);
-      setFormData({ email: '', name: '', password: '', confirm_password: '' });
+      setFormData({ email: '', name: '', password: '', confirm_password: '', role: 'recruiter' });
       setShowAddForm(false);
 
       // Clear success message after 3 seconds
@@ -108,7 +113,7 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     // Clear error for this field when user starts typing
@@ -129,7 +134,7 @@ const UserManagement: React.FC = () => {
           className="btn btn--primary"
           onClick={() => setShowAddForm(!showAddForm)}
         >
-          {showAddForm ? 'Cancel' : 'Add New Recruiter'}
+          {showAddForm ? 'Cancel' : 'Add New User'}
         </button>
       </div>
 
@@ -162,7 +167,7 @@ const UserManagement: React.FC = () => {
                 type="text"
                 name="name"
                 className={`form__input ${formErrors.name ? 'form__input--error' : ''}`}
-                placeholder="Enter recruiter's full name"
+                placeholder="Enter user's full name"
                 value={formData.name}
                 onChange={handleFormChange}
               />
@@ -175,11 +180,25 @@ const UserManagement: React.FC = () => {
                 type="email"
                 name="email"
                 className={`form__input ${formErrors.email ? 'form__input--error' : ''}`}
-                placeholder="recruiter@example.com"
+                placeholder="user@example.com"
                 value={formData.email}
                 onChange={handleFormChange}
               />
               {formErrors.email && <span className="form__error">{formErrors.email}</span>}
+            </div>
+
+            <div className="form__group">
+              <label className="form__label">Role *</label>
+              <select
+                name="role"
+                className={`form__input ${formErrors.role ? 'form__input--error' : ''}`}
+                value={formData.role}
+                onChange={handleFormChange}
+              >
+                <option value="recruiter">Recruiter</option>
+                <option value="admin">Admin</option>
+              </select>
+              {formErrors.role && <span className="form__error">{formErrors.role}</span>}
             </div>
 
             <div className="form__row">
@@ -211,7 +230,7 @@ const UserManagement: React.FC = () => {
             </div>
 
             <p className="form__note">
-              Credentials will be automatically emailed to the recruiter's email address.
+              Credentials will be automatically emailed to the user's email address.
             </p>
 
             <div className="form__actions">

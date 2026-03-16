@@ -147,10 +147,8 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
       const firstFetch = isFirstFetch.current[version];
       isFirstFetch.current[version] = false;
 
-      // If first fetch already has data → skip progress
-      if (firstFetch && entries.length > 0) {
-        setVersionData((prev) => ({ ...prev, [version]: { ...prev[version], total, showProgress: false } }));
-      } else if (entries.length === 0) {
+      // If no data yet → keep showing progress and poll again
+      if (entries.length === 0) {
         if (jobStatus === 'closed' || (job?.status?.toLowerCase() === 'closed')) {
           setVersionData((prev) => ({ ...prev, [version]: { ...prev[version], total: 0, showProgress: false } }));
           return;
@@ -685,8 +683,6 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
         {/* ── RIGHT — SHORTLIST ── */}
         <div className="jd-right">
           <div className="jd-shortlist-card">
-
-            {/* Header */}
             <div className="jd-shortlist-header">
               <div>
                 <h3>Shortlisted Candidates</h3>
