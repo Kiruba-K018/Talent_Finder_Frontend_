@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { calculateDashboardStats, DashboardStats } from '../services/adminApi';
 
+type AdminTab = 'home' | 'users' | 'source-run' | 'job-posts';
+
+interface AdminHomeProps {
+  onNavigate?: (tab: AdminTab) => void;
+}
+
 const StatCard: React.FC<{
   title: string;
   value: string | number;
@@ -21,7 +27,7 @@ const StatCard: React.FC<{
   </div>
 );
 
-const AdminHome: React.FC = () => {
+const AdminHome: React.FC<AdminHomeProps> = ({ onNavigate }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +117,7 @@ const AdminHome: React.FC = () => {
       <div className="admin-home__actions">
         <h3 className="admin-section__subtitle">Quick Access</h3>
         <div className="quick-actions">
-          <button className="quick-action-btn" onClick={() => document.getElementById('users-section')?.scrollIntoView({ behavior: 'smooth' })}>
+          <button className="quick-action-btn" onClick={() => onNavigate?.('users')}>
             <span className="quick-action-icon">
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -126,7 +132,7 @@ const AdminHome: React.FC = () => {
               </svg>
             </span>
           </button>
-          <button className="quick-action-btn" onClick={() => document.getElementById('source-config-section')?.scrollIntoView({ behavior: 'smooth' })}>
+          <button className="quick-action-btn" onClick={() => onNavigate?.('source-run')}>
             <span className="quick-action-icon">
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="1" fill="currentColor"/>
@@ -142,7 +148,7 @@ const AdminHome: React.FC = () => {
               </svg>
             </span>
         </button>
-          <button className="quick-action-btn" onClick={() => document.getElementById('job-posts-section')?.scrollIntoView({ behavior: 'smooth' })}>
+          <button className="quick-action-btn" onClick={() => onNavigate?.('job-posts')}>
             <span className="quick-action-icon">
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                 <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/>

@@ -23,6 +23,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const handleLogout = () => dispatch(logoutThunk() as any);
 
+  // Callback for quick action buttons to navigate to different tabs
+  const handleNavigateTab = (tab: AdminTab) => {
+    setActiveTab(tab);
+  };
+
   // Close profile dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -193,7 +198,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
         {/* Content */}
         <div className="admin-content">
-          {activeTab === 'home' && <AdminHome />}
+          {activeTab === 'home' && <AdminHome onNavigate={handleNavigateTab} />}
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'source-run' && <SourceRunConfig />}
           {activeTab === 'job-posts' && <AdminJobPosts />}

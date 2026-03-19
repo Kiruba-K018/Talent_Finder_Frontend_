@@ -2,6 +2,9 @@ import {api, source_api} from '../../../api/axiosInstance';
 import { JobPost } from '../../job_post/slices/Jobpostslice';
 import { ScoredCandidate } from '../../job_post/services/jobPostApi';
 
+// Re-export ScoredCandidate for use in admin features
+export type { ScoredCandidate };
+
 // ── Admin Users ────────────────────────────────────────────────────────────
 
 export interface User {
@@ -63,6 +66,32 @@ export const deleteSourcedCandidateApi = async (candidateId: string): Promise<vo
 
 // ── Admin Dashboard Statistics ─────────────────────────────────────────────
 
+// Helper function to convert ISO datetime string to IST format
+const formatToIST = (dateString: string | null | undefined): string | null => {
+  if (!dateString) return null;
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    
+    // Format in IST timezone (UTC+5:30)
+    const istFormatter = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    
+    return istFormatter.format(date);
+  } catch (error) {
+    console.error('Error formatting date to IST:', error);
+    return dateString;
+  }
+};
+
 export interface DashboardStats {
   total_jobs: number;
   total_users: number;
@@ -72,17 +101,21 @@ export interface DashboardStats {
 
 // Calculate stats from API responses
 export const calculateDashboardStats = async (): Promise<DashboardStats> => {
-  const [jobPosts, users, candidates] = await Promise.all([
+  const [jobPosts, users, candidates, config] = await Promise.all([
     getAllJobPostsApi(),
     getAllUsersApi(),
     getAllSourcedCandidatesApi(),
+    getSourceRunConfigApi(),
   ]);
+
+  // Format next_run_at to IST timezone
+  const nextRunIST = config?.next_run_at ? formatToIST(config.next_run_at) : null;
 
   return {
     total_jobs: jobPosts.length,
     total_users: users.length,
     total_sourced_candidates: candidates.length,
-    next_source_run: null, // To be implemented
+    next_source_run: nextRunIST,
   };
 };
 
@@ -92,7 +125,7 @@ export interface SourceRunConfig {
   id?: string;
   frequency: string; // 'daily', 'weekly', 'monthly'
   keywords: string[];
-  platform: 'linkedin'; // Currently only LinkedIn
+  platform: 'Postfreejobs'; // Currently only LinkedIn
   locations: string[];
   department: string;
   experience_min: number;
@@ -107,6 +140,7 @@ export interface SourceRunConfig {
   is_active: boolean;
   created_at?: string;
   next_run?: string;
+  next_run_at?: string | null;
 }
 
 export const createSourceRunConfigApi = async (config: SourceRunConfig): Promise<SourceRunConfig> => {
@@ -121,9 +155,10 @@ export const updateSourceRunConfigApi = async (configId: string, config: SourceR
 
 export const getSourceRunConfigApi = async (): Promise<SourceRunConfig | null> => {
   try {
-    const response = await api.get<SourceRunConfig>('admin/sourcing-config/');
+    const response = await api.get<SourceRunConfig>('/admin/sourcing-config/');
     return response.data;
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch sourcing config:', error);
     return null;
   }
 };
@@ -132,6 +167,22 @@ export interface TriggerResponse {
   message: string;
   config_id: string;
   status: string;
+}
+
+export interface SourcingConfigResponse {
+  id: string;
+  org_id: string;
+  is_active: boolean;
+  frequency: string;
+  scheduled_time: string;
+  scheduled_day: string | null;
+  search_skills: string[];
+  search_location: string;
+  max_profiles: number;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  created_by: string;
 }
 
 export const triggerSourceRunManuallyApi = async (
@@ -162,11 +213,62 @@ export interface SourceRun {
   completed_at: string | null;
 }
 
+export interface SourceRunWithConfig extends SourceRun {
+  config?: SourcingConfigResponse;
+}
+
 export const getSourceRunsHistoryApi = async (): Promise<SourceRun[]> => {
   try {
     const response = await api.get<SourceRun[]>('/source-runs/');
     return Array.isArray(response.data) ? response.data : [];
   } catch {
+    return [];
+  }
+};
+
+export const getSourceRunsHistoryWithConfigApi = async (): Promise<SourceRunWithConfig[]> => {
+  try {
+    const runs = await getSourceRunsHistoryApi();
+    
+    // Fetch config details for each source run in parallel
+    const runsWithConfig = await Promise.all(
+      runs.map(async (run) => {
+        try {
+          const config = await getSourcingConfigByIdApi(run.config_id);
+          return {
+            ...run,
+            config: config || undefined,
+          };
+        } catch (error) {
+          console.error(`Failed to fetch config for run ${run.source_run_id}:`, error);
+          return run; // Return run without config if fetch fails
+        }
+      })
+    );
+    
+    return runsWithConfig;
+  } catch (error) {
+    console.error('Failed to fetch source runs with config:', error);
+    return [];
+  }
+};
+
+export const getSourcingConfigByIdApi = async (configId: string): Promise<SourcingConfigResponse | null> => {
+  try {
+    const response = await api.get<SourcingConfigResponse>(`/admin/sourcing-config/${configId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to fetch sourcing config ${configId}:`, error);
+    return null;
+  }
+};
+
+export const getSourcedCandidatesByRunIdApi = async (sourceRunId: string): Promise<ScoredCandidate[]> => {
+  try {
+    const response = await api.get<ScoredCandidate[]>(`/sourced-candidates/${sourceRunId}`);
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error(`Failed to fetch sourced candidates for run ${sourceRunId}:`, error);
     return [];
   }
 };

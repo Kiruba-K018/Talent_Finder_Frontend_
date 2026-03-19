@@ -52,11 +52,11 @@ interface PipelineFlowProps {
 
 const PipelineFlow: React.FC<PipelineFlowProps> = ({ currentStage }) => {
   const stages = [
-    { name: 'Profiles Fetched', icon: '🔍' },
-    { name: 'Pre-filtering', icon: '⏳' },
+    { name: 'Profiles Fetched', icon: '📥' },
+    { name: 'Pre-filtering', icon: '🔍' },
     { name: 'Parsing Resumes', icon: '📄' },
     { name: 'Generating Embeddings', icon: '🧠' },
-    { name: 'Scoring', icon: '🏆' },
+    { name: 'Scoring', icon: '⭐' },
   ];
 
   return (

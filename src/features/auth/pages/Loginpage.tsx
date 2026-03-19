@@ -96,8 +96,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onForgotPasswordRequested }) => {
 
             <div className="tf-features">
               {[
-                { icon: '⚡', text: 'AI-powered candidate matching' },
-                { icon: '🎯', text: 'Smart resume shortlisting' },
+                { icon: '🤖', text: 'AI-powered candidate matching' },
+                { icon: '📋', text: 'Smart resume shortlisting' },
                 { icon: '📊', text: 'Pipeline analytics & insights' },
               ].map((f) => (
                 <div className="tf-feature" key={f.text}>

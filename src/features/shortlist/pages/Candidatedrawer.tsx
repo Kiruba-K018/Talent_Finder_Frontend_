@@ -303,7 +303,7 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
                     <div className="cd-cert-list">
                       {c.certifications.map((cert) => (
                         <div className="cd-cert-card" key={cert.certification_id}>
-                          <div className="cd-cert-icon">🏅</div>
+                          <div className="cd-cert-icon">★</div>
                           <div>
                             <p className="cd-cert-name">{cert.certification_name}</p>
                             <div className="cd-tags" style={{ marginTop: '.35rem' }}>
@@ -369,7 +369,7 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
                 <div className="cd-edu-list">
                   {c.education?.map((e) => (
                     <div className="cd-edu-card" key={e.education_id}>
-                      <div className="cd-edu-icon">🎓</div>
+                      <div className="cd-edu-icon"></div>
                       <div><p className="cd-edu-degree">{e.degree}</p><p className="cd-edu-course">{e.course}</p></div>
                     </div>
                   ))}
@@ -384,8 +384,8 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
                   <div className="cd-score-bars">
                     {/* reordered: Completion → Recency → Skill Match → Rule-Based */}
                     <ScoreBar label="Completion Score" score={c.completion_score}                    color="#7c3aed" tooltipKey="completion" />
-                    <ScoreBar label="Recency Score"    score={c.recency_score}                       color="#d97706" tooltipKey="recency"    />
-                    <ScoreBar label="Skill Match"      score={Math.round(c.skill_match_score * 100)} color="#16a34a" tooltipKey="skillMatch" />
+                    <ScoreBar label="Recency Score"    score={Math.max(c.recency_score, 1)}         color="#d97706" tooltipKey="recency"    />
+                    <ScoreBar label="Skill Match"      score={Math.min(Math.round(c.skill_match_score * 100), 100)} color="#16a34a" tooltipKey="skillMatch" />
                     <ScoreBar label="Rule-Based Score" score={c.rule_based_score}                    color="#2563eb" tooltipKey="ruleBased"  />
                   </div>
                 </Section>
@@ -487,7 +487,7 @@ const CandidateDrawer: React.FC<Props> = ({ candidate: c, jobId, recruiterNote, 
                     <div className="cd-flags">
                       {c.flags.map((f, i) => (
                         <div className="cd-flag" key={i} style={{ borderColor: FLAG_COLORS[f.flag] ?? FLAG_COLORS.DEFAULT }}>
-                          <span className="cd-flag__label" style={{ color: FLAG_COLORS[f.flag] ?? FLAG_COLORS.DEFAULT }}>⚑ {f.flag}</span>
+                          <span className="cd-flag__label" style={{ color: FLAG_COLORS[f.flag] ?? FLAG_COLORS.DEFAULT }}> {f.flag}</span>
                           <span className="cd-flag__reason">{f.reason}</span>
                         </div>
                       ))}

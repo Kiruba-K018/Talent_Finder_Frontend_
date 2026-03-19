@@ -551,7 +551,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
   );
   if (jobError || !job) return (
     <div className="jd-error">
-      <span>⚠️</span><p>{jobError || 'Job not found.'}</p>
+      <span>!</span><p>{jobError || 'Job not found.'}</p>
       <button className="jd-back-btn" onClick={onBack}>← Back to jobs</button>
     </div>
   );
@@ -736,7 +736,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
               <ProcessingProgress isVisible={true} totalCandidates={vd?.total > 0 ? vd.total : undefined} />
             ) : vd.entries.length === 0 ? (
               <div className="jd-shortlist-empty">
-                <div className="jd-shortlist-empty__icon">👤</div>
+                <div className="jd-shortlist-empty__icon">U</div>
                 <p>No candidates shortlisted yet.</p>
                 <span>Candidates will appear here once shortlisting runs.</span>
               </div>
@@ -889,7 +889,6 @@ const CandidateRow: React.FC<{
   const title    = scored?.title ?? null;
   const initials = name ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : '…';
   const aggScore = scored?.aggregation_score ?? null;
-  const hasFlags = (scored?.flags?.length ?? 0) > 0;
 
   return (
     <button
@@ -910,11 +909,6 @@ const CandidateRow: React.FC<{
             <div className="jd-skeleton jd-skeleton--name" />
             <div className="jd-skeleton jd-skeleton--sub" />
           </>
-        )}
-        {hasFlags && (
-          <div className="jd-row-flags">
-            {scored!.flags.map((f, fi) => <span key={fi} className="jd-row-flag">{f.flag}</span>)}
-          </div>
         )}
         {note && (
           <div className="jd-row-note">

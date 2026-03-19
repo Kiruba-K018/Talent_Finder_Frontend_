@@ -45,7 +45,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast }) => {
     success: '✓',
     error: '✕',
     info: 'ℹ',
-    warning: '⚠',
+    warning: '!,',
   };
   const iconClass = iconMap[toast.type as keyof typeof iconMap];
 

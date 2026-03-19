@@ -193,9 +193,9 @@ export interface SourceRunStage {
 
 export interface SourceRun extends ScoringProgress {
   stages?: SourceRunStage[];
-  profiles_fetched?: number;
-  candidates_scored?: number;
-  shortlist_size?: number;
+  profiles_fetched: number;
+  candidates_scored: number;
+  shortlist_size: number;
   created_at?: string;
   completed_at?: string;
   error_message?: string;

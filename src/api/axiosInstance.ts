@@ -2,13 +2,13 @@ import axios from 'axios';
 import { store } from '../redux/store';
 
 export const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 export const source_api = axios.create({
-  baseURL: 'http://localhost:8001/sourcing',
+  baseURL: '/sourcing',
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import type { SourceRunConfig, SourceRun } from '../services/adminApi';
+import type { SourceRunConfig, SourceRun, SourcingConfigResponse, ScoredCandidate } from '../services/adminApi';
 import {
   getSourceRunConfigApi,
   createSourceRunConfigApi,
   updateSourceRunConfigApi,
   triggerSourceRunManuallyApi,
   getSourceRunsHistoryApi,
+  getSourceRunsHistoryWithConfigApi,
+  getSourcingConfigByIdApi,
+  getSourcedCandidatesByRunIdApi,
 } from '../services/adminApi';
 
 type Tab = 'config' | 'history';
@@ -49,6 +52,552 @@ const ProgressBarModal: React.FC<{
   );
 };
 
+// Source Run Detail Modal Component
+const SourceRunDetailModal: React.FC<{
+  isOpen: boolean;
+  sourceRun: SourceRun | null;
+  onClose?: () => void;
+}> = ({ isOpen, sourceRun, onClose }) => {
+  const [config, setConfig] = useState<SourcingConfigResponse | null>(null);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [candidates, setCandidates] = useState<ScoredCandidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && sourceRun) {
+      setConfigLoading(true);
+      setCandidatesLoading(true);
+      
+      Promise.all([
+        getSourcingConfigByIdApi(sourceRun.config_id).then((configData) => {
+          setConfig(configData);
+          setConfigLoading(false);
+        }),
+        getSourcedCandidatesByRunIdApi(sourceRun.source_run_id).then((candidatesData) => {
+          setCandidates(candidatesData);
+          setCandidatesLoading(false);
+        }),
+      ]);
+    }
+  }, [isOpen, sourceRun]);
+
+  if (!isOpen || !sourceRun) return null;
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && onClose) {
+      onClose();
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '—';
+    try {
+      // Handle time format HH:MM:SS or ISO string
+      if (timeString.includes(':')) {
+        return timeString.substring(0, 5); // HH:MM
+      }
+      return timeString;
+    } catch {
+      return timeString;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      completed: '#22c55e',
+      pending: '#f59e0b',
+      in_progress: '#3b82f6',
+      failed: '#ef4444',
+    };
+    return colors[status] || '#64748b';
+  };
+
+  const getStatusBgColor = (status: string) => {
+    const colors: Record<string, string> = {
+      completed: '#f0fdf4',
+      pending: '#fffbeb',
+      in_progress: '#eff6ff',
+      failed: '#fef2f2',
+    };
+    return colors[status] || '#f8fafc';
+  };
+
+  return (
+    <div className="modal-overlay" onClick={handleBackdropClick}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '0.75rem',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+        maxWidth: '900px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '2rem',
+          borderBottom: '1px solid #e2e8f0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+          borderRadius: '0.75rem 0.75rem 0 0',
+        }}>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem', fontWeight: '800', color: '#0f172a' }}>
+              Source Run Details
+            </h2>
+            <p style={{ margin: '0', fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>
+              ID: <code style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>
+                {sourceRun.source_run_id.substring(0, 16)}...
+              </code>
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '0.375rem',
+              color: '#64748b',
+              transition: 'all 0.2s ease',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#e2e8f0';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            aria-label="Close modal"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{
+          padding: '2.5rem',
+          overflowY: 'auto',
+          flex: '1',
+        }}>
+          {/* Status Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1.5rem',
+            marginBottom: '2.5rem',
+            padding: '1.25rem',
+            backgroundColor: getStatusBgColor(sourceRun.status),
+            borderRadius: '0.5rem',
+            borderLeft: `5px solid ${getStatusColor(sourceRun.status)}`,
+          }}>
+            <div>
+              <span style={{
+                display: 'inline-block',
+                backgroundColor: getStatusColor(sourceRun.status),
+                color: '#ffffff',
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.375rem',
+                fontSize: '0.9rem',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}>
+                {sourceRun.status.replace('_', ' ')}
+              </span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Duration</div>
+              <div style={{ fontSize: '1rem', color: '#1e293b', fontWeight: '700' }}>
+                {sourceRun.completed_at
+                  ? `${Math.round((new Date(sourceRun.completed_at).getTime() - new Date(sourceRun.run_at).getTime()) / 1000)}s`
+                  : 'In Progress'}
+              </div>
+            </div>
+          </div>
+
+          {/* Two Column Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2.5rem' }}>
+            {/* Run Information Card */}
+            <div style={{
+              padding: '1.75rem',
+              backgroundColor: '#f8fafc',
+              borderRadius: '0.625rem',
+              border: '1px solid #cbd5e1',
+            }}>
+              <h3 style={{
+                margin: '0 0 1.5rem 0',
+                fontSize: '1rem',
+                fontWeight: '700',
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Run Information
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {[
+                  { label: 'Started At', value: formatDate(sourceRun.run_at) },
+                  { label: 'Completed At', value: sourceRun.completed_at ? formatDate(sourceRun.completed_at) : '—' },
+                  { label: 'Resumes Fetched', value: sourceRun.number_of_resume_fetched.toString(), highlight: true },
+                  { label: 'Platform', value: sourceRun.platform_id },
+                ].map((item, idx) => (
+                  <div key={idx} style={{ borderBottom: idx < 3 ? '1px solid #e2e8f0' : 'none', paddingBottom: idx < 3 ? '1rem' : '0' }}>
+                    <label style={{
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      display: 'block',
+                      marginBottom: '0.375rem',
+                    }}>
+                      {item.label}
+                    </label>
+                    <div style={{
+                      fontSize: '0.95rem',
+                      color: '#1e293b',
+                      fontWeight: item.highlight ? '700' : '500',
+                    }}>
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Configuration Card */}
+            <div style={{
+              padding: '1.75rem',
+              backgroundColor: '#f8fafc',
+              borderRadius: '0.625rem',
+              border: '1px solid #cbd5e1',
+            }}>
+              <h3 style={{
+                margin: '0 0 1.5rem 0',
+                fontSize: '1rem',
+                fontWeight: '700',
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="1"/>
+                  <path d="M12 1v6m0 6v6"/>
+                  <circle cx="12" cy="12" r="11"/>
+                </svg>
+                Configuration
+              </h3>
+              {configLoading ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  <div style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 2a10 10 0 0 0 0 20"/>
+                    </svg>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', fontWeight: '600' }}>Loading...</div>
+                </div>
+              ) : config ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {[
+                    { label: 'Frequency', value: config.frequency, capitalize: true },
+                    { label: 'Scheduled Time', value: formatTime(config.scheduled_time) },
+                    { label: 'Scheduled Day', value: config.scheduled_day || '—' },
+                    { label: 'Max Profiles', value: config.max_profiles.toString() },
+                    { label: 'Active', value: config.is_active ? 'Yes' : 'No', badge: config.is_active },
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ borderBottom: idx < 4 ? '1px solid #e2e8f0' : 'none', paddingBottom: idx < 4 ? '1rem' : '0' }}>
+                      <label style={{
+                        fontSize: '0.75rem',
+                        fontWeight: '700',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        display: 'block',
+                        marginBottom: '0.375rem',
+                      }}>
+                        {item.label}
+                      </label>
+                      <div style={{
+                        fontSize: '0.95rem',
+                        color: '#1e293b',
+                        fontWeight: '500',
+                      }}>
+                        {item.badge !== undefined ? (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '0.4rem 0.9rem',
+                            borderRadius: '0.375rem',
+                            backgroundColor: item.badge ? '#f0fdf4' : '#fef2f2',
+                            color: item.badge ? '#166534' : '#991b1b',
+                            fontSize: '0.85rem',
+                            fontWeight: '700',
+                            border: `1px solid ${item.badge ? '#bbf7d0' : '#fecaca'}`,
+                          }}>
+                            {item.value}
+                          </span>
+                        ) : (
+                          item.capitalize ? item.value.charAt(0).toUpperCase() + item.value.slice(1) : item.value
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: '#64748b', fontSize: '0.875rem' }}>
+                  Unable to load configuration
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Skills Section */}
+          {config && (
+            <div style={{
+              padding: '1.75rem',
+              backgroundColor: '#f0f9ff',
+              borderRadius: '0.625rem',
+              border: '1px solid #bae6fd',
+              marginBottom: '1.5rem',
+            }}>
+              <h3 style={{
+                margin: '0 0 1rem 0',
+                fontSize: '1rem',
+                fontWeight: '700',
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+                Search Skills
+              </h3>
+              {config.search_skills && config.search_skills.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  {config.search_skills.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-block',
+                        backgroundColor: '#dbeafe',
+                        color: '#0c4a6e',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.375rem',
+                        fontSize: '0.9rem',
+                        fontWeight: '700',
+                        border: '1px solid #0284c7',
+                      }}
+                    >
+                      ✓ {skill}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>No skills configured</div>
+              )}
+            </div>
+          )}
+
+          {/* Location Section */}
+          {config && (
+            <div style={{
+              padding: '1.75rem',
+              backgroundColor: '#fef3c7',
+              borderRadius: '0.625rem',
+              border: '1px solid #fcd34d',
+              marginBottom: '1.5rem',
+            }}>
+              <h3 style={{
+                margin: '0 0 0.75rem 0',
+                fontSize: '1rem',
+                fontWeight: '700',
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                Search Location
+              </h3>
+              <div style={{
+                fontSize: '1rem',
+                color: '#a16207',
+                fontWeight: '700',
+                padding: '0.875rem',
+                backgroundColor: '#fffbeb',
+                borderRadius: '0.375rem',
+              }}>
+                📍 {config.search_location || '—'}
+              </div>
+            </div>
+          )}
+
+          {/* Sourced Candidates Section */}
+          {/* <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '600', textTransform: 'uppercase', color: '#64748b', marginBottom: '1rem' }}>
+              Sourced Candidates ({candidates.length})
+            </h3>
+            {candidatesLoading ? (
+              <div style={{ textAlign: 'center', padding: '1rem', color: '#64748b' }}>Loading candidates...</div>
+            ) : candidates.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {candidates.map((candidate, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      color: '#1e293b',
+                    }}
+                  >
+                    {idx + 1}. {candidate.candidate_name || 'Unknown Candidate'}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: '#64748b', fontSize: '0.875rem' }}>No candidates sourced in this run</div>
+            )}
+          </div> */}
+
+          {/* Error Section */}
+          {sourceRun.error_message && (
+            <div style={{
+              padding: '1.5rem',
+              backgroundColor: '#fef2f2',
+              borderRadius: '0.625rem',
+              border: '1px solid #fecaca',
+              borderLeft: '5px solid #ef4444',
+              marginBottom: '1.5rem',
+            }}>
+              <h3 style={{
+                margin: '0 0 0.75rem 0',
+                fontSize: '1rem',
+                fontWeight: '700',
+                color: '#7f1d1d',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12" stroke="#fef2f2" strokeWidth="2"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16" stroke="#fef2f2" strokeWidth="2"/>
+                </svg>
+                Error
+              </h3>
+              <div style={{
+                fontSize: '0.95rem',
+                color: '#7f1d1d',
+                wordBreak: 'break-word',
+                lineHeight: '1.6',
+              }}>
+                {sourceRun.error_message}
+              </div>
+            </div>
+          )}
+
+          {/* Metadata */}
+          {config && (
+            <div style={{
+              padding: '1.25rem',
+              backgroundColor: '#f0f9ff',
+              borderRadius: '0.625rem',
+              border: '1px solid #bae6fd',
+              fontSize: '0.85rem',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div>
+                  <div style={{ color: '#0369a1', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Config ID</div>
+                  <div style={{ fontFamily: 'monospace', color: '#0c4a6e', wordBreak: 'break-all', fontSize: '0.8rem' }}>
+                    {config.id}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#0369a1', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Created</div>
+                  <div style={{ color: '#0c4a6e' }}>
+                    {new Date(config.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '1.5rem 2.5rem',
+          borderTop: '1px solid #e2e8f0',
+          backgroundColor: '#f8fafc',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '1rem',
+          borderRadius: '0 0 0.75rem 0.75rem',
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '0.75rem 1.75rem',
+              backgroundColor: '#0f172a',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '0.375rem',
+              fontSize: '0.95rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#1e293b';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#0f172a';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            Close Modal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SourceRunConfig: React.FC = () => {
   const [config, setConfig] = useState<SourceRunConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,11 +611,13 @@ const SourceRunConfig: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('config');
   const [sourceRuns, setSourceRuns] = useState<SourceRun[]>([]);
   const [sourceRunsLoading, setSourceRunsLoading] = useState(false);
+  const [selectedSourceRun, setSelectedSourceRun] = useState<SourceRun | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [formData, setFormData] = useState<SourceRunConfig>({
     frequency: 'weekly',
     keywords: [],
-    platform: 'linkedin',
+    platform: 'Postfreejobs',
     locations: [],
     department: '',
     experience_min: 0,
@@ -127,8 +678,8 @@ const SourceRunConfig: React.FC = () => {
   const fetchSourceRuns = async () => {
     try {
       setSourceRunsLoading(true);
-      const runs = await getSourceRunsHistoryApi();
-      setSourceRuns(runs);
+      const runsWithConfig = await getSourceRunsHistoryWithConfigApi();
+      setSourceRuns(runsWithConfig);
     } catch (err) {
       console.error('Failed to fetch source runs:', err);
       setError('Failed to load source runs history');
@@ -460,9 +1011,8 @@ const SourceRunConfig: React.FC = () => {
                     <select
                       className="form__input"
                       value={formData.platform}
-                      disabled
                     >
-                      <option value="linkedin">LinkedIn (Only available)</option>
+                      <option value="postfreejob">Postfreejobs (Only available)</option>
                     </select>
                   </div>
                 </div>
@@ -942,12 +1492,19 @@ const SourceRunConfig: React.FC = () => {
                 <div className="table-cell">Started</div>
                 <div className="table-cell">Completed</div>
                 <div className="table-cell">Resumes Fetched</div>
-    
+                <div className="table-cell table-cell--action">Action</div>
               </div>
               {sourceRuns.map((run) => (
                 <div key={run.source_run_id} className="table-row">
                   <div className="table-cell table-cell--wide">
-                    <code className="run-id">{run.source_run_id.substring(0, 8)}...</code>
+                    <div>
+                      <code className="run-id" style={{ display: 'block', marginBottom: '0.25rem' }}>{run.source_run_id.substring(0, 8)}...</code>
+                      {(run as any).config && (
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          Skills: {(run as any).config.search_skills.join(', ')} | Location: {(run as any).config.search_location}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="table-cell">
                     <span
@@ -967,6 +1524,22 @@ const SourceRunConfig: React.FC = () => {
                   <div className="table-cell">
                     <strong>{run.number_of_resume_fetched}</strong>
                   </div>
+                  <div className="table-cell table-cell--action">
+                    <button
+                      className="view-btn"
+                      onClick={() => {
+                        setSelectedSourceRun(run);
+                        setIsDetailModalOpen(true);
+                      }}
+                      title="View details"
+                      aria-label={`View details for run ${run.source_run_id}`}
+                    >
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+                        <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -979,6 +1552,15 @@ const SourceRunConfig: React.FC = () => {
         progress={Math.min(Math.round(progressPercent), 100)}
         message="Sourcing candidates from LinkedIn..."
         onClose={() => setProgressModalOpen(false)}
+      />
+
+      <SourceRunDetailModal
+        isOpen={isDetailModalOpen}
+        sourceRun={selectedSourceRun}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedSourceRun(null);
+        }}
       />
     </div>
   );
