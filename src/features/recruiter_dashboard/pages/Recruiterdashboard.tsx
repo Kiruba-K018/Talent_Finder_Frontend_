@@ -30,6 +30,7 @@ const JobCard: React.FC<{
 }> = ({ job, index, isOwner, onSelect, onEdit }) => {
   const statusStyle = getStatusStyle(job.status);
   const isClosed    = job.status?.toLowerCase() === 'closed';
+  const isScoring   = job.status?.toLowerCase() === 'created';
   const version     = job.version ?? 1;
 
   return (
@@ -56,6 +57,15 @@ const JobCard: React.FC<{
             <span className="rd-status-dot" style={{ background: statusStyle.dot }} />
             {job.status}
           </span>
+          {isScoring && (
+            <span
+              className="rd-scoring-badge"
+              title="AI is evaluating candidates in the background"
+            >
+              <span className="rd-scoring-dot" />
+              Scoring
+            </span>
+          )}
           {/* Edit icon — owner only, not closed */}
           {isOwner && !isClosed && (
             <button
@@ -190,7 +200,7 @@ const RecruiterDashboard: React.FC<{ onJobSelect?: (id: string) => void }> = ({ 
 
   // Pre-filter by tab (open / mine / all) then by search + status dropdown
   const tabFiltered = jobs.filter((j) => {
-    if (filterTab === 'open') return ['open','active'].includes(j.status?.toLowerCase());
+    if (filterTab === 'open') return j.status?.toLowerCase() !== 'closed';
     if (filterTab === 'mine') return j.created_by === currentUserId;
     return true;
   });
@@ -279,7 +289,7 @@ const RecruiterDashboard: React.FC<{ onJobSelect?: (id: string) => void }> = ({ 
             <h1 className="rd-page-title">Job Posts</h1>
             <p className="rd-page-subtitle">
               {jobs.length > 0
-                ? `${jobs.length} job post${jobs.length !== 1 ? 's' : ''} · ${jobs.filter(j => ['active','open'].includes(j.status?.toLowerCase())).length} active`
+                ? `${jobs.length} job post${jobs.length !== 1 ? 's' : ''} · ${jobs.filter(j => j.status?.toLowerCase() !== 'closed').length} active`
                 : 'Manage and track your open positions'}
             </p>
           </div>
@@ -296,7 +306,7 @@ const RecruiterDashboard: React.FC<{ onJobSelect?: (id: string) => void }> = ({ 
           <div className="rd-stats-bar">
             {[
               { label: 'Total Posts', value: jobs.length, icon: '📋' },
-              { label: 'Active',      value: jobs.filter(j => ['active','open'].includes(j.status?.toLowerCase())).length, icon: '✅' },
+              { label: 'Active',      value: jobs.filter(j => j.status?.toLowerCase() !== 'closed').length, icon: '✅' },
               { label: 'My Posts',    value: mineCount, icon: '👤' },
               { label: 'Locations',   value: new Set(jobs.map(j => j.location_preference).filter(Boolean)).size, icon: '📍' },
             ].map((stat) => (

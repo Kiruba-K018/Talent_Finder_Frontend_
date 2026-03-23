@@ -246,7 +246,12 @@ export const getSourceRunsHistoryWithConfigApi = async (): Promise<SourceRunWith
       })
     );
     
-    return runsWithConfig;
+    // Sort by run_at in descending order (latest first)
+    return runsWithConfig.sort((a, b) => {
+      const dateA = new Date(a.run_at).getTime();
+      const dateB = new Date(b.run_at).getTime();
+      return dateB - dateA;
+    });
   } catch (error) {
     console.error('Failed to fetch source runs with config:', error);
     return [];
@@ -270,5 +275,15 @@ export const getSourcedCandidatesByRunIdApi = async (sourceRunId: string): Promi
   } catch (error) {
     console.error(`Failed to fetch sourced candidates for run ${sourceRunId}:`, error);
     return [];
+  }
+};
+
+export const deleteSourceRunApi = async (sourceRunId: string): Promise<boolean> => {
+  try {
+    const response = await api.delete<{ message: string }>(`/source-runs/${sourceRunId}`);
+    return response.status === 200;
+  } catch (error) {
+    console.error(`Failed to delete source run ${sourceRunId}:`, error);
+    throw error;
   }
 };

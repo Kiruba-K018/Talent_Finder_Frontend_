@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store} from './redux/store';
-import { useAppSelector } from './hooks/hooks';
+import { useAppSelector, useAppDispatch } from './hooks/hooks';
 import LoginPage from './features/auth/pages/Loginpage';
 import VerifyOtpPage from './features/auth/pages/Verifyotppage';
 import ResetPasswordPage from './features/auth/pages/Resetpasswordpage';
@@ -17,6 +17,31 @@ const AppInner: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [verifiedOtp, setVerifiedOtp] = useState('');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [isNewlyCreated, setIsNewlyCreated] = useState(false);
+  const createdJobsRef = useRef<Map<string, number>>(new Map());
+  const NEW_JOB_WINDOW_MS = 5000; // 5 seconds window to consider job as "new"
+
+  // When job is selected, check if it was recently created
+  const handleJobSelect = (jobId: string) => {
+    const createdTime = createdJobsRef.current.get(jobId);
+    const isNew = createdTime && (Date.now() - createdTime) < NEW_JOB_WINDOW_MS;
+    setIsNewlyCreated(!!isNew);
+    setSelectedJobId(jobId);
+  };
+
+  // Subscribe to job creation to track newly created jobs
+  const lastCreatedJobId = useAppSelector((s) => (s.jobPost as any).lastCreatedJobId);
+  
+  useEffect(() => {
+    if (lastCreatedJobId) {
+      createdJobsRef.current.set(lastCreatedJobId, Date.now());
+      // Clean up old entries after window time
+      const cleanup = setTimeout(() => {
+        createdJobsRef.current.delete(lastCreatedJobId);
+      }, NEW_JOB_WINDOW_MS + 1000);
+      return () => clearTimeout(cleanup);
+    }
+  }, [lastCreatedJobId]);
 
   if (isAuthenticated) {
     if (selectedJobId) {
@@ -24,6 +49,7 @@ const AppInner: React.FC = () => {
         <JobDetailPage
           jobId={selectedJobId}
           onBack={() => setSelectedJobId(null)}
+          isNewlyCreated={isNewlyCreated}
         />
       );
     }
@@ -45,7 +71,7 @@ const AppInner: React.FC = () => {
     
     console.log('Routing to RecruiterDashboard (role_id !== 1)');
     // Route to recruiter dashboard for all other roles
-    return <RecruiterDashboard onJobSelect={(id) => setSelectedJobId(id)} />;
+    return <RecruiterDashboard onJobSelect={handleJobSelect} />;
   }
 
   const handleForgotPasswordRequested = (email: string) => {

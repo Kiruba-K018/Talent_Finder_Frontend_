@@ -2682,7 +2682,7 @@ select.form__input {
 
 .table-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 1fr 0.8fr;
   gap: 1rem;
   padding: 1rem 1.5rem;
   background: var(--gray-50);
@@ -2696,7 +2696,7 @@ select.form__input {
 
 .table-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 1fr 0.8fr;
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--gray-200);
@@ -2823,7 +2823,7 @@ select.form__input {
 @media (max-width: 1024px) {
   .table-header,
   .table-row {
-    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 0.8fr;
   }
   
   .source-runs-table {

@@ -24,6 +24,7 @@ interface JobPostState {
   error: string | null;
   creating: boolean;
   createError: string | null;
+  lastCreatedJobId: string | null;
 }
 
 const initialState: JobPostState = {
@@ -32,6 +33,7 @@ const initialState: JobPostState = {
   error: null,
   creating: false,
   createError: null,
+  lastCreatedJobId: null,
 };
 
 const jobPostSlice = createSlice({
@@ -56,6 +58,7 @@ const jobPostSlice = createSlice({
     },
     createJobSuccess(state, action: PayloadAction<JobPost>) {
       state.creating = false;
+      state.lastCreatedJobId = action.payload.job_id;
       state.jobs = [action.payload, ...state.jobs];
     },
     createJobFailure(state, action: PayloadAction<string>) {

@@ -3,6 +3,7 @@ import { JobPost } from '../slices/Jobpostslice';
 import {
   getJobPostByIdApi,
   getShortlistApi,
+  getAllShortlistApi,
   getCandidateScoreApi,
   closeJobPostApi,
   getJobVersionSnapshotApi,
@@ -19,6 +20,7 @@ import './Jobdetailpage.css';
 interface Props {
   jobId: string;
   onBack: () => void;
+  isNewlyCreated?: boolean;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; dot: string }> = {
@@ -75,14 +77,20 @@ interface VersionShortlist {
   showProgress:  boolean;
   progressStart: number;
   loaded:        boolean;
+  allEntries?:   ShortlistEntry[];      // All candidates from endpoint
+  allScoredMap?: Record<string, ScoredCandidate>;  // Scores for all candidates
+  showAllCandidates: boolean;      // Whether user chose to view all candidates
+  loadingAll:    boolean;          // Whether currently fetching all candidates
 }
 
-const emptyVersionShortlist = (): VersionShortlist => ({
+const emptyVersionShortlist = (showProgress: boolean = false): VersionShortlist => ({
   entries: [], scoredMap: {}, notesMap: {}, total: 0,
-  showProgress: true, progressStart: Date.now(), loaded: false,
+  showProgress, progressStart: Date.now(), loaded: false,
+  allEntries: undefined, allScoredMap: undefined,
+  showAllCandidates: false, loadingAll: false,
 });
 
-const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
+const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false }) => {
   const currentUser = useAppSelector((s) => s.auth.user);
   const isAdmin = currentUser?.role_id === 1 || currentUser?.role === 'admin';
 
@@ -111,6 +119,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
 
   const pollTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const isFirstFetch = useRef<Record<number, boolean>>({});
+  const isNewJobRef = useRef<boolean>(isNewlyCreated);
 
   /* ── Load job ── */
   useEffect(() => {
@@ -133,7 +142,8 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
     // Init entry if missing
     setVersionData((prev) => {
       if (prev[version]) return prev;
-      return { ...prev, [version]: emptyVersionShortlist() };
+      // Only show progress if this is a newly created job
+      return { ...prev, [version]: emptyVersionShortlist(isNewJobRef.current) };
     });
 
     isFirstFetch.current[version] = isFirstFetch.current[version] ?? true;
@@ -146,6 +156,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
 
       const firstFetch = isFirstFetch.current[version];
       isFirstFetch.current[version] = false;
+      isNewJobRef.current = false; // Mark as loaded after first fetch
 
       // If no data yet → keep showing progress and poll again
       if (entries.length === 0) {
@@ -176,7 +187,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
       );
 
       setVersionData((prev) => {
-        const cur = prev[version] ?? emptyVersionShortlist();
+        const cur = prev[version] ?? emptyVersionShortlist(false);
         const elapsed   = Date.now() - cur.progressStart;
         const remaining = cur.showProgress ? Math.max(0, MIN_PROGRESS_MS - elapsed) : 0;
 
@@ -189,7 +200,11 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
         return {
           ...prev,
           [version]: {
-            entries: sorted, scoredMap, notesMap, total,
+            ...cur,
+            entries: sorted,
+            scoredMap,
+            notesMap,
+            total,
             showProgress: remaining > 0,
             progressStart: cur.progressStart,
             loaded: true,
@@ -200,6 +215,53 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
       pollTimers.current[version] = setTimeout(() => fetchVersionShortlist(version), POLL_INTERVAL_MS);
     }
   }, [jobId, job?.status]);
+
+  /* ── Fetch all candidates (beyond required count) ── */
+  const fetchAllCandidates = useCallback(async (version: number) => {
+    setVersionData((prev) => ({
+      ...prev,
+      [version]: { ...prev[version], loadingAll: true },
+    }));
+
+    try {
+      const res = await getAllShortlistApi(jobId, version);
+      const entries = res.shortlist ?? [];
+
+      // Build notes map for all entries
+      const notesMap: Record<string, string> = {};
+      entries.forEach((e) => { if (e.recruiter_notes) notesMap[e.candidate_id] = e.recruiter_notes; });
+
+      // Fetch scores for all entries
+      const settled = await Promise.allSettled(
+        entries.map((e) => getCandidateScoreApi(jobId, e.candidate_id))
+      );
+      const scoredMap: Record<string, ScoredCandidate> = {};
+      settled.forEach((r) => { if (r.status === 'fulfilled') scoredMap[r.value.candidate_id] = r.value; });
+
+      // Sort by aggregation_score desc
+      const sorted = [...entries].sort((a, b) =>
+        (scoredMap[b.candidate_id]?.aggregation_score ?? -1) -
+        (scoredMap[a.candidate_id]?.aggregation_score ?? -1)
+      );
+
+      setVersionData((prev) => ({
+        ...prev,
+        [version]: {
+          ...prev[version],
+          allEntries: sorted,
+          allScoredMap: scoredMap,
+          showAllCandidates: true,
+          loadingAll: false,
+        },
+      }));
+    } catch (err) {
+      console.error('Failed to fetch all candidates:', err);
+      setVersionData((prev) => ({
+        ...prev,
+        [version]: { ...prev[version], loadingAll: false },
+      }));
+    }
+  }, [jobId]);
 
   /* ── Trigger fetch when active version changes ── */
   useEffect(() => {
@@ -216,11 +278,62 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
         setVersionSnapshots((prev) => ({ ...prev, [activeVersion]: snap }));
       });
     }
+    // Reset view to show only top candidates when switching versions
+    setVersionData((prev) => ({
+      ...prev,
+      [activeVersion]: {
+        ...prev[activeVersion],
+        showAllCandidates: false,
+      },
+    }));
   }, [activeVersion, job]);
+
+  /* ── Poll job status for updates (when detail view is open and status is created) ── */
+  const jobStatusPollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    // Only poll if detail view is open and status is 'created' or 'shortlisted'
+    if (!job || (job.status?.toLowerCase() !== 'created' && job.status?.toLowerCase() !== 'shortlisted')) {
+      if (jobStatusPollTimer.current) clearTimeout(jobStatusPollTimer.current);
+      return;
+    }
+
+    const pollJobStatus = async () => {
+      try {
+        const updated = await getJobPostByIdApi(jobId);
+        // Update job if status has changed
+        if (updated.status !== job.status) {
+          setJob(updated);
+          // If status changed to "open", re-fetch the shortlist to get updated total count
+          if (updated.status?.toLowerCase() === 'open') {
+            setVersionData((prev) => ({
+              ...prev,
+              [activeVersion]: {
+                ...prev[activeVersion],
+                loaded: false, // This will trigger re-fetch
+              },
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to poll job status:', err);
+      }
+      // Schedule next poll
+      jobStatusPollTimer.current = setTimeout(pollJobStatus, POLL_INTERVAL_MS);
+    };
+
+    jobStatusPollTimer.current = setTimeout(pollJobStatus, POLL_INTERVAL_MS);
+
+    return () => {
+      if (jobStatusPollTimer.current) clearTimeout(jobStatusPollTimer.current);
+    };
+  }, [jobId, job?.status, activeVersion]);
 
   /* ── Cleanup poll timers on unmount ── */
   useEffect(() => {
-    return () => { Object.values(pollTimers.current).forEach(clearTimeout); };
+    return () => {
+      Object.values(pollTimers.current).forEach(clearTimeout);
+      if (jobStatusPollTimer.current) clearTimeout(jobStatusPollTimer.current);
+    };
   }, []);
 
   /* ── Close job ── */
@@ -244,9 +357,10 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
     const newVer = updated.version ?? 1;
     setVersions((prev) => (prev.includes(newVer) ? prev : [...prev, newVer]));
     setActiveVersion(newVer);
-    // Clear cached data for new version so it fetches fresh
-    setVersionData((prev) => ({ ...prev, [newVer]: { ...emptyVersionShortlist(), progressStart: Date.now() } }));
+    // Clear cached data for new version so it fetches fresh — show progress for new version
+    setVersionData((prev) => ({ ...prev, [newVer]: emptyVersionShortlist(true) }));
     isFirstFetch.current[newVer] = true;
+    isNewJobRef.current = true;
   };
 
   /* ── Ownership ── */
@@ -732,31 +846,112 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack }) => {
             )}
 
             {/* Content */}
-            {!vd || (vd.showProgress && !isAdmin) ? (
-              <ProcessingProgress isVisible={true} totalCandidates={vd?.total > 0 ? vd.total : undefined} />
-            ) : vd.entries.length === 0 ? (
-              <div className="jd-shortlist-empty">
-                <div className="jd-shortlist-empty__icon">U</div>
-                <p>No candidates shortlisted yet.</p>
-                <span>Candidates will appear here once shortlisting runs.</span>
-              </div>
-            ) : (
-              <div className="jd-candidate-list">
-                {vd.entries.map((entry, i) => {
-                  const scored = vd.scoredMap[entry.candidate_id];
+            {(() => {
+              const jobStatus = job?.status?.toLowerCase() ?? '';
+              const hasShortlist = vd?.entries && vd.entries.length > 0;
+
+              // Show ProcessingProgress when status is 'created' (until shortlist is fetched)
+              if (jobStatus === 'created') {
+                return <ProcessingProgress isVisible={true} totalCandidates={vd?.total > 0 ? vd.total : undefined} />;
+              }
+
+              // For 'shortlisted' or 'open' status
+              if (jobStatus === 'shortlisted' || jobStatus === 'open') {
+                // Still loading shortlist
+                if (!vd || !hasShortlist) {
                   return (
-                    <CandidateRow
-                      key={entry.candidate_id}
-                      entry={entry}
-                      scored={scored}
-                      note={vd.notesMap[entry.candidate_id] ?? null}
-                      index={i}
-                      onClick={() => scored && setSelectedCandidate(scored)}
-                    />
+                    <div className="jd-shortlist-loading">
+                      <div className="jd-spinner" style={{ borderColor: 'rgba(37,99,235,.2)', borderTopColor: '#2563eb' }} />
+                      <p>Loading candidates...</p>
+                    </div>
                   );
-                })}
-              </div>
-            )}
+                }
+
+                // Display candidate list
+                return (
+                  <>
+                    <div className="jd-candidate-list">
+                      {vd.showAllCandidates && vd.allEntries
+                        ? vd.allEntries.map((entry, i) => {
+                            const scored = vd.allScoredMap?.[entry.candidate_id];
+                            return (
+                              <CandidateRow
+                                key={entry.candidate_id}
+                                entry={entry}
+                                scored={scored}
+                                note={vd.notesMap[entry.candidate_id] ?? null}
+                                index={i}
+                                onClick={() => scored && setSelectedCandidate(scored)}
+                              />
+                            );
+                          })
+                        : vd.entries.map((entry, i) => {
+                            const scored = vd.scoredMap[entry.candidate_id];
+                            return (
+                              <CandidateRow
+                                key={entry.candidate_id}
+                                entry={entry}
+                                scored={scored}
+                                note={vd.notesMap[entry.candidate_id] ?? null}
+                                index={i}
+                                onClick={() => scored && setSelectedCandidate(scored)}
+                              />
+                            );
+                          })}
+                    </div>
+
+                    {(jobStatus === 'open') && (
+                      <div className="jd-shortlist-actions">
+                        {!vd.showAllCandidates ? (
+                          <button
+                            className="jd-view-all-btn"
+                            onClick={() => fetchAllCandidates(activeVersion)}
+                            disabled={vd.loadingAll}
+                          >
+                            {vd.loadingAll ? (
+                              <>
+                                <span className="jd-spinner jd-spinner--xs" style={{ marginRight: '0.5rem' }} />
+                                Loading...
+                              </>
+                            ) : (
+                              `View all candidates`
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            className="jd-show-top-btn"
+                            onClick={() =>
+                              setVersionData((prev) => ({
+                                ...prev,
+                                [activeVersion]: {
+                                  ...prev[activeVersion],
+                                  showAllCandidates: false,
+                                },
+                              }))
+                            }
+                          >
+                            Show only top {job?.no_of_candidates_required}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              }
+
+              // Default fallback (e.g., closed or other status)
+              return (
+                <div className="jd-shortlist-empty">
+                  <div className="jd-shortlist-empty__icon" style={{ animation: 'spin 2s linear infinite' }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <span>No candidates available</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

@@ -88,6 +88,23 @@ export const getShortlistApi = async (
 };
 
 /**
+ * Fetch all candidates (including those beyond required count) for a job.
+ * When a version is supplied the versioned endpoint is used:
+ *   GET /shortlist/{job_id}/all/version/{version}
+ * Response format is the same as getShortlistApi.
+ */
+export const getAllShortlistApi = async (
+  jobId: string,
+  version?: number
+): Promise<ShortlistResponse> => {
+  const url = version != null
+    ? `/shortlist/${jobId}/all/version/${version}`
+    : `/shortlist/${jobId}/all`;
+  const response = await api.get<ShortlistResponse>(url);
+  return response.data;
+};
+
+/**
  * Versioned job snapshot — returns the job description / skills as they were
  * at a specific version. Endpoint: GET /jobpost/{job_id}/version/{version}
  * Falls back gracefully: if the endpoint doesn't exist yet we return null.

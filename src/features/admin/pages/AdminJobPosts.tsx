@@ -60,6 +60,7 @@ const AdminJobPosts: React.FC = () => {
       <JobDetailPage
         jobId={selectedJobId}
         onBack={() => setSelectedJobId(null)}
+        isNewlyCreated={false}
       />
     );
   }

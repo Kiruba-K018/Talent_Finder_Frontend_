@@ -9,6 +9,7 @@ import {
   getSourceRunsHistoryWithConfigApi,
   getSourcingConfigByIdApi,
   getSourcedCandidatesByRunIdApi,
+  deleteSourceRunApi,
 } from '../services/adminApi';
 
 type Tab = 'config' | 'history';
@@ -57,16 +58,24 @@ const SourceRunDetailModal: React.FC<{
   isOpen: boolean;
   sourceRun: SourceRun | null;
   onClose?: () => void;
-}> = ({ isOpen, sourceRun, onClose }) => {
+  onRefresh?: () => void;
+  candidatesPage?: number;
+  setCandidatesPage?: (page: number) => void;  
+  CANDIDATES_PER_PAGE?: number;
+  renderPaginationControls?: (currentPage: number, totalItems: number, itemsPerPage: number, onPageChange: (page: number) => void) => React.ReactNode;
+}> = ({ isOpen, sourceRun, onClose, onRefresh = () => {}, candidatesPage = 1, setCandidatesPage = () => {}, CANDIDATES_PER_PAGE = 8, renderPaginationControls = () => null }) => {
   const [config, setConfig] = useState<SourcingConfigResponse | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [candidates, setCandidates] = useState<ScoredCandidate[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (isOpen && sourceRun) {
       setConfigLoading(true);
       setCandidatesLoading(true);
+      setCandidatesPage(1);
       
       Promise.all([
         getSourcingConfigByIdApi(sourceRun.config_id).then((configData) => {
@@ -107,6 +116,21 @@ const SourceRunDetailModal: React.FC<{
       return timeString;
     } catch {
       return timeString;
+    }
+  };
+
+  const handleDeleteSourceRun = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteSourceRunApi(sourceRun.source_run_id);
+      setShowDeleteConfirm(false);
+      onRefresh();
+      onClose?.();
+    } catch (error) {
+      console.error('Failed to delete source run:', error);
+      alert('Failed to delete source run. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -463,34 +487,92 @@ const SourceRunDetailModal: React.FC<{
           )}
 
           {/* Sourced Candidates Section */}
-          {/* <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '600', textTransform: 'uppercase', color: '#64748b', marginBottom: '1rem' }}>
+          <div style={{
+            padding: '1.75rem',
+            backgroundColor: '#f5f3ff',
+            borderRadius: '0.625rem',
+            border: '1px solid #ddd6fe',
+            marginBottom: '1.5rem',
+          }}>
+            <h3 style={{
+              margin: '0 0 1.5rem 0',
+              fontSize: '1rem',
+              fontWeight: '700',
+              color: '#0f172a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
               Sourced Candidates ({candidates.length})
             </h3>
             {candidatesLoading ? (
-              <div style={{ textAlign: 'center', padding: '1rem', color: '#64748b' }}>Loading candidates...</div>
-            ) : candidates.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {candidates.map((candidate, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: '0.75rem 1rem',
-                      backgroundColor: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.875rem',
-                      color: '#1e293b',
-                    }}
-                  >
-                    {idx + 1}. {candidate.candidate_name || 'Unknown Candidate'}
-                  </div>
-                ))}
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                <div style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 2a10 10 0 0 0 0 20"/>
+                  </svg>
+                </div>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', fontWeight: '600' }}>Loading candidates...</div>
               </div>
+            ) : candidates.length > 0 ? (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {candidates
+                    .slice((candidatesPage - 1) * CANDIDATES_PER_PAGE, candidatesPage * CANDIDATES_PER_PAGE)
+                    .map((candidate, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '1rem',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e0d9f7',
+                          borderRadius: '0.375rem',
+                          fontSize: '0.9rem',
+                          color: '#1e293b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          backgroundColor: '#7c3aed',
+                          color: '#ffffff',
+                          fontSize: '0.75rem',
+                          fontWeight: '700',
+                          flexShrink: 0,
+                        }}>
+                          {(candidatesPage - 1) * CANDIDATES_PER_PAGE + idx + 1}
+                        </span>
+                        <span>{candidate.candidate_name || 'Unknown Candidate'}</span>
+                      </div>
+                    ))}
+                </div>
+                {renderPaginationControls(candidatesPage, candidates.length, CANDIDATES_PER_PAGE, setCandidatesPage)}
+              </>
             ) : (
-              <div style={{ color: '#64748b', fontSize: '0.875rem' }}>No candidates sourced in this run</div>
+              <div style={{
+                textAlign: 'center',
+                padding: '2rem',
+                color: '#64748b',
+                fontSize: '0.9rem',
+              }}>
+                No candidates were sourced in this run
+              </div>
             )}
-          </div> */}
+          </div>
 
           {/* Error Section */}
           {sourceRun.error_message && (
@@ -562,10 +644,50 @@ const SourceRunDetailModal: React.FC<{
           borderTop: '1px solid #e2e8f0',
           backgroundColor: '#f8fafc',
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           gap: '1rem',
           borderRadius: '0 0 0.75rem 0.75rem',
         }}>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={isDeleting}
+            style={{
+              padding: '0.75rem 1.75rem',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '0.375rem',
+              fontSize: '0.95rem',
+              fontWeight: '700',
+              cursor: isDeleting ? 'not-allowed' : 'pointer',
+              opacity: isDeleting ? '0.6' : '1',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+            onMouseEnter={(e) => {
+              if (!isDeleting) {
+                e.currentTarget.style.backgroundColor = '#dc2626';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ef4444';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </button>
           <button
             onClick={onClose}
             style={{
@@ -593,6 +715,118 @@ const SourceRunDetailModal: React.FC<{
             Close Modal
           </button>
         </div>
+
+        {/* Confirmation Dialog Overlay */}
+        {showDeleteConfirm && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '0.75rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxWidth: '400px',
+              width: '90%',
+              padding: '2rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+            }}>
+              <div>
+                <h3 style={{
+                  margin: '0 0 0.75rem 0',
+                  fontSize: '1.25rem',
+                  fontWeight: '800',
+                  color: '#0f172a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#ef4444">
+                    <circle cx="12" cy="12" r="10"/>
+                    <text x="12" y="16" textAnchor="middle" fontSize="16" fill="white" fontWeight="bold">!</text>
+                  </svg>
+                  Delete Source Run
+                </h3>
+                <p style={{
+                  margin: '0',
+                  fontSize: '0.95rem',
+                  color: '#64748b',
+                  lineHeight: '1.6',
+                }}>
+                  Are you sure you want to delete this source run? This action cannot be undone and all associated data will be permanently removed.
+                </p>
+              </div>
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: 'flex-end',
+              }}>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  style={{
+                    padding: '0.65rem 1.5rem',
+                    backgroundColor: '#e2e8f0',
+                    color: '#0f172a',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    opacity: isDeleting ? '0.6' : '1',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isDeleting) {
+                      e.currentTarget.style.backgroundColor = '#cbd5e1';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#e2e8f0';
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSourceRun}
+                  disabled={isDeleting}
+                  style={{
+                    padding: '0.65rem 1.5rem',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    opacity: isDeleting ? '0.6' : '1',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isDeleting) {
+                      e.currentTarget.style.backgroundColor = '#dc2626';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ef4444';
+                  }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -613,6 +847,14 @@ const SourceRunConfig: React.FC = () => {
   const [sourceRunsLoading, setSourceRunsLoading] = useState(false);
   const [selectedSourceRun, setSelectedSourceRun] = useState<SourceRun | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  // Pagination for source runs history table
+  const [sourceRunsPage, setSourceRunsPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+  
+  // Pagination for modal candidates
+  const [candidatesPage, setCandidatesPage] = useState(1);
+  const CANDIDATES_PER_PAGE = 8;
 
   const [formData, setFormData] = useState<SourceRunConfig>({
     frequency: 'weekly',
@@ -672,6 +914,7 @@ const SourceRunConfig: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'history') {
       fetchSourceRuns();
+      setSourceRunsPage(1);
     }
   }, [activeTab]);
 
@@ -686,6 +929,119 @@ const SourceRunConfig: React.FC = () => {
     } finally {
       setSourceRunsLoading(false);
     }
+  };
+
+  const calculateDuration = (startTime: string, endTime: string | null): string => {
+    if (!endTime) return '—';
+    try {
+      const start = new Date(startTime).getTime();
+      const end = new Date(endTime).getTime();
+      if (isNaN(start) || isNaN(end)) return '—';
+      
+      const durationMs = end - start;
+      const durationMinutes = Math.round(durationMs / (1000 * 60));
+      return durationMinutes > 0 ? `${durationMinutes}` : '< 1';
+    } catch {
+      return '—';
+    }
+  };
+
+  const renderPaginationControls = (currentPage: number, totalItems: number, itemsPerPage: number, onPageChange: (page: number) => void) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '1.5rem 1rem',
+        borderTop: '1px solid #e2e8f0',
+        marginTop: '1rem',
+      }}>
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          style={{
+            padding: '0.5rem 1rem',
+            border: '1px solid #cbd5e1',
+            borderRadius: '0.375rem',
+            backgroundColor: currentPage === 1 ? '#f1f5f9' : '#ffffff',
+            color: currentPage === 1 ? '#cbd5e1' : '#0f172a',
+            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            transition: 'all 0.2s',
+          }}
+        >
+          Previous
+        </button>
+        <div style={{
+          display: 'flex',
+          gap: '0.3rem',
+          alignItems: 'center',
+        }}>
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            return (
+              <button
+                key={pageNum}
+                onClick={() => onPageChange(pageNum)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  padding: '0',
+                  border: currentPage === pageNum ? 'none' : '1px solid #cbd5e1',
+                  borderRadius: '0.375rem',
+                  backgroundColor: currentPage === pageNum ? '#0f172a' : '#ffffff',
+                  color: currentPage === pageNum ? '#ffffff' : '#0f172a',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          style={{
+            padding: '0.5rem 1rem',
+            border: '1px solid #cbd5e1',
+            borderRadius: '0.375rem',
+            backgroundColor: currentPage === totalPages ? '#f1f5f9' : '#ffffff',
+            color: currentPage === totalPages ? '#cbd5e1' : '#0f172a',
+            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            transition: 'all 0.2s',
+          }}
+        >
+          Next
+        </button>
+        <span style={{
+          fontSize: '0.8rem',
+          color: '#64748b',
+          marginLeft: '1rem',
+        }}>
+          Page {currentPage} of {totalPages}
+        </span>
+      </div>
+    );
   };
 
   const handleAddKeyword = () => {
@@ -1485,63 +1841,72 @@ const SourceRunConfig: React.FC = () => {
               <p>No source runs found yet.</p>
             </div>
           ) : (
-            <div className="source-runs-table">
-              <div className="table-header">
-                <div className="table-cell table-cell--wide">Run ID</div>
-                <div className="table-cell">Status</div>
-                <div className="table-cell">Started</div>
-                <div className="table-cell">Completed</div>
-                <div className="table-cell">Resumes Fetched</div>
-                <div className="table-cell table-cell--action">Action</div>
-              </div>
-              {sourceRuns.map((run) => (
-                <div key={run.source_run_id} className="table-row">
-                  <div className="table-cell table-cell--wide">
-                    <div>
-                      <code className="run-id" style={{ display: 'block', marginBottom: '0.25rem' }}>{run.source_run_id.substring(0, 8)}...</code>
-                      {(run as any).config && (
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          Skills: {(run as any).config.search_skills.join(', ')} | Location: {(run as any).config.search_location}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="table-cell">
-                    <span
-                      className="status-badge"
-                      style={{
-                        backgroundColor: getStatusBgColor(run.status),
-                        color: getStatusColor(run.status),
-                      }}
-                    >
-                      {run.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="table-cell">{formatDate(run.run_at)}</div>
-                  <div className="table-cell">
-                    {run.completed_at ? formatDate(run.completed_at) : '—'}
-                  </div>
-                  <div className="table-cell">
-                    <strong>{run.number_of_resume_fetched}</strong>
-                  </div>
-                  <div className="table-cell table-cell--action">
-                    <button
-                      className="view-btn"
-                      onClick={() => {
-                        setSelectedSourceRun(run);
-                        setIsDetailModalOpen(true);
-                      }}
-                      title="View details"
-                      aria-label={`View details for run ${run.source_run_id}`}
-                    >
-                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
-                        <circle cx="12" cy="12" r="3" fill="currentColor"/>
-                      </svg>
-                    </button>
-                  </div>
+            <div>
+              <div className="source-runs-table">
+                <div className="table-header">
+                  <div className="table-cell table-cell--wide">Run ID</div>
+                  <div className="table-cell">Status</div>
+                  <div className="table-cell">Started</div>
+                  <div className="table-cell">Completed</div>
+                  <div className="table-cell">Duration (min)</div>
+                  <div className="table-cell">Resumes Fetched</div>
+                  <div className="table-cell table-cell--action">Action</div>
                 </div>
-              ))}
+                {sourceRuns
+                  .slice((sourceRunsPage - 1) * ITEMS_PER_PAGE, sourceRunsPage * ITEMS_PER_PAGE)
+                  .map((run) => (
+                    <div key={run.source_run_id} className="table-row">
+                      <div className="table-cell table-cell--wide">
+                        <div>
+                          <code className="run-id" style={{ display: 'block', marginBottom: '0.25rem' }}>{run.source_run_id.substring(0, 8)}...</code>
+                          {(run as any).config && (
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              Skills: {(run as any).config.search_skills.join(', ')} | Location: {(run as any).config.search_location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="table-cell">
+                        <span
+                          className="status-badge"
+                          style={{
+                            backgroundColor: getStatusBgColor(run.status),
+                            color: getStatusColor(run.status),
+                          }}
+                        >
+                          {run.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="table-cell">{formatDate(run.run_at)}</div>
+                      <div className="table-cell">
+                        {run.completed_at ? formatDate(run.completed_at) : '—'}
+                      </div>
+                      <div className="table-cell">
+                        <strong>{calculateDuration(run.run_at, run.completed_at)}</strong>
+                      </div>
+                      <div className="table-cell">
+                        <strong>{run.number_of_resume_fetched}</strong>
+                      </div>
+                      <div className="table-cell table-cell--action">
+                        <button
+                          className="view-btn"
+                          onClick={() => {
+                            setSelectedSourceRun(run);
+                            setIsDetailModalOpen(true);
+                          }}
+                          title="View details"
+                          aria-label={`View details for run ${run.source_run_id}`}
+                        >
+                          <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+                            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              {renderPaginationControls(sourceRunsPage, sourceRuns.length, ITEMS_PER_PAGE, setSourceRunsPage)}
             </div>
           )}
         </div>
@@ -1561,6 +1926,11 @@ const SourceRunConfig: React.FC = () => {
           setIsDetailModalOpen(false);
           setSelectedSourceRun(null);
         }}
+        onRefresh={fetchSourceRuns}
+        candidatesPage={candidatesPage}
+        setCandidatesPage={setCandidatesPage}
+        CANDIDATES_PER_PAGE={CANDIDATES_PER_PAGE}
+        renderPaginationControls={renderPaginationControls}
       />
     </div>
   );

@@ -5,7 +5,6 @@ interface ProcessingProgressProps {
   totalCandidates?: number;
 }
 
-
 const STAGES = [
   { id: 0, label: 'Scanning resumes',     detail: 'Fetching stored candidate profiles',    duration: 15000 },
   { id: 1, label: 'Matching skills',       detail: 'Comparing required & preferred skills against each applicant…', duration: 30000 },
@@ -68,7 +67,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
 
   if (!isVisible) return null;
 
-  const globalPct = Math.min((elapsed / totalDuration) * 100, 99);
+  const globalPct = Math.min((elapsed / totalDuration) * 100, 100);
 
   let stageIndex   = 0;
   let stageElapsed = elapsed;
@@ -85,37 +84,58 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
   const sLeft        = secsLeft % 60;
   const etaStr       = minsLeft > 0 ? `~${minsLeft}m ${sLeft}s left` : `~${sLeft}s left`;
 
+  const circumference = 2 * Math.PI * 52;
+  const strokeDashoffset = circumference - (globalPct / 100) * circumference;
+
   return (
     <div style={{
-      flex: 1, overflowY: 'auto', padding: '1.4rem',
-      display: 'flex', flexDirection: 'column', gap: '1rem',
+      flex: 1, overflowY: 'auto', padding: '2rem',
+      display: 'flex', flexDirection: 'column', gap: '2rem',
+      justifyContent: 'center', alignItems: 'center',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{ flexShrink: 0, position: 'relative', width: 44, height: 44 }}>
-          <svg width="44" height="44" viewBox="0 0 44 44">
-            <circle cx="22" cy="22" r="18" fill="none" stroke="#dbeafe" strokeWidth="3.5" />
+      {/* Large Circular Progress */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ position: 'relative', width: 120, height: 120 }}>
+          <svg width="120" height="120" viewBox="0 0 120 120" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.08))' }}>
+            {/* Background circle */}
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+            {/* Animated progress circle */}
             <circle
-              cx="22" cy="22" r="18" fill="none"
-              stroke="#2563eb" strokeWidth="3.5"
-              strokeDasharray={`${(globalPct / 100) * 2 * Math.PI * 18} ${2 * Math.PI * 18}`}
+              cx="60" cy="60" r="52" fill="none"
+              stroke="#2563eb" strokeWidth="5"
+              strokeDasharray={`${circumference}`}
+              strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
-              style={{ transform: 'rotate(-90deg)', transformOrigin: '22px 22px', transition: 'stroke-dasharray 0.8s ease' }}
+              style={{
+                transform: 'rotate(-90deg)',
+                transformOrigin: '60px 60px',
+                willChange: 'stroke-dashoffset',
+              }}
             />
           </svg>
+          {/* Progress percentage in center */}
           <span style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.6rem', fontWeight: 800, color: '#1d4ed8',
+            fontSize: '1.8rem', fontWeight: 800, color: '#1d4ed8',
             fontFamily: 'Sora, sans-serif',
           }}>
             {Math.round(globalPct)}%
           </span>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.15rem' }}>
+
+        {/* Title and Status */}
+        <div style={{ textAlign: 'center' }}>
+          <h3 style={{
+            fontSize: '1.25rem', fontWeight: 700, color: '#0f172a',
+            margin: '0 0 0.5rem 0', fontFamily: 'Sora, sans-serif'
+          }}>
             Processing candidates{dots}
-          </p>
-          <p style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+          </h3>
+          <p style={{
+            fontSize: '0.9rem', color: '#64748b', margin: 0,
+            fontFamily: 'Sora, sans-serif'
+          }}>
             {totalCandidates != null && totalCandidates > 0
               ? `${totalCandidates} applicant${totalCandidates !== 1 ? 's' : ''} found · ${etaStr}`
               : `AI scoring in progress · ${etaStr}`}
@@ -123,75 +143,78 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
         </div>
       </div>
 
-      {/* Global bar */}
-      <div style={{ height: 6, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', width: `${globalPct}%`,
-          background: 'linear-gradient(90deg, #1d4ed8, #3b82f6)',
-          borderRadius: 999, transition: 'width 0.8s ease',
-          position: 'relative', overflow: 'hidden',
-        }}>
+      {/* Large Global Progress Bar */}
+      <div style={{ width: '100%', maxWidth: '320px' }}>
+        <div style={{ height: 12, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <div style={{
-            position: 'absolute', top: 0, left: 0, width: '40%', height: '100%',
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)',
-            animation: 'jd-shimmer 1.6s ease-in-out infinite',
-          }} />
+            height: '100%', width: `${globalPct}%`,
+            background: 'linear-gradient(90deg, #1d4ed8, #3b82f6)',
+            borderRadius: 999,
+            position: 'relative', overflow: 'hidden',
+            willChange: 'width',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, width: '40%', height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)',
+              animation: 'jd-shimmer 1.6s ease-in-out infinite',
+            }} />
+          </div>
         </div>
       </div>
 
       {/* Stages */}
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column' }}>
         {STAGES.map((stage, i) => {
           const isDone   = i < stageIndex;
           const isActive = i === stageIndex;
           return (
-            <div key={stage.id} style={{ display: 'flex', gap: '0.65rem', position: 'relative', paddingBottom: '0.75rem' }}>
+            <div key={stage.id} style={{ display: 'flex', gap: '0.75rem', position: 'relative', paddingBottom: '1rem' }}>
               {i < STAGES.length - 1 && (
                 <div style={{
-                  position: 'absolute', left: 11, top: 24, width: 2,
-                  height: 'calc(100% - 14px)',
+                  position: 'absolute', left: 15, top: 32, width: 2,
+                  height: 'calc(100% - 16px)',
                   background: isDone ? '#bfdbfe' : '#f1f5f9',
                   borderRadius: 2, transition: 'background 0.3s',
                 }} />
               )}
               <div style={{
-                width: 24, height: 24, borderRadius: '50%', flexShrink: 0, zIndex: 1,
+                width: 32, height: 32, borderRadius: '50%', flexShrink: 0, zIndex: 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: isDone ? '#dbeafe' : isActive ? '#eff6ff' : '#f8fafc',
                 border: `2px solid ${isDone ? '#93c5fd' : isActive ? '#2563eb' : '#e2e8f0'}`,
-                boxShadow: isActive ? '0 0 0 3px rgba(37,99,235,0.12)' : 'none',
+                boxShadow: isActive ? '0 0 0 4px rgba(37,99,235,0.15)' : 'none',
                 transition: 'all 0.3s',
               }}>
                 {isDone ? (
-                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                  <svg width="13" height="13" viewBox="0 0 12 12" fill="none">
                     <path d="M2 6l3 3 5-5" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 ) : isActive ? (
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563eb', animation: 'jd-pulse 1.2s ease-in-out infinite' }} />
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2563eb', animation: 'jd-pulse 1.2s ease-in-out infinite' }} />
                 ) : (
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#e2e8f0' }} />
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#e2e8f0' }} />
                 )}
               </div>
-              <div style={{ flex: 1, paddingTop: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ flex: 1, paddingTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: isActive ? '0.5rem' : 0 }}>
                   <span style={{
-                    fontSize: '0.8rem',
-                    fontWeight: isActive ? 700 : isDone ? 500 : 400,
+                    fontSize: '0.9rem',
+                    fontWeight: isActive ? 700 : isDone ? 600 : 500,
                     color: isDone ? '#1d4ed8' : isActive ? '#0f172a' : '#94a3b8',
                     transition: 'color 0.3s',
                   }}>{stage.label}</span>
                   {isDone && (
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 999, padding: '1px 6px' }}>done</span>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 999, padding: '2px 7px' }}>done</span>
                   )}
                   {isActive && (
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 999, padding: '1px 6px' }}>running</span>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 999, padding: '2px 7px' }}>running</span>
                   )}
                 </div>
                 {isActive && (
                   <>
-                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 3, marginBottom: 5, lineHeight: 1.5 }}>{stage.detail}</p>
-                    <div style={{ height: 3, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${stagePct}%`, background: 'linear-gradient(90deg, #1d4ed8, #60a5fa)', borderRadius: 999, transition: 'width 0.5s ease' }} />
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 0.5rem 0', lineHeight: 1.5 }}>{stage.detail}</p>
+                    <div style={{ height: 4, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${stagePct}%`, background: 'linear-gradient(90deg, #1d4ed8, #60a5fa)', borderRadius: 999, willChange: 'width' }} />
                     </div>
                   </>
                 )}
@@ -203,6 +226,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isVisibl
 
       <style>{`
         @keyframes jd-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+        @keyframes jd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
       `}</style>
     </div>
   );
