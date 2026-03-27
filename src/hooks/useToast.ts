@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useAppDispatch } from './useRedux';
 import { addToast, removeToast } from '@redux/slices/uiSlice';
-import { Toast } from '@types/index';
+import { Toast } from '../types';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -9,7 +9,11 @@ export const useToast = () => {
   const dispatch = useAppDispatch();
 
   const showToast = useCallback(
-    (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration: number = 3000) => {
+    (
+      message: string,
+      type: 'success' | 'error' | 'info' | 'warning' = 'info',
+      duration: number = 3000
+    ) => {
       const id = generateId();
       const toast: Toast = {
         id,

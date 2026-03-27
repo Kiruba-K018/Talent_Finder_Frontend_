@@ -24,20 +24,25 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; dot: string }> = {
-  active:  { bg: '#f0fdf4', color: '#16a34a', dot: '#22c55e' },
-  open:    { bg: '#f0fdf4', color: '#16a34a', dot: '#22c55e' },
-  closed:  { bg: '#fef2f2', color: '#dc2626', dot: '#ef4444' },
-  draft:   { bg: '#f8fafc', color: '#64748b', dot: '#94a3b8' },
-  paused:  { bg: '#fffbeb', color: '#d97706', dot: '#f59e0b' },
+  active: { bg: '#f0fdf4', color: '#16a34a', dot: '#22c55e' },
+  open: { bg: '#f0fdf4', color: '#16a34a', dot: '#22c55e' },
+  closed: { bg: '#fef2f2', color: '#dc2626', dot: '#ef4444' },
+  draft: { bg: '#f8fafc', color: '#64748b', dot: '#94a3b8' },
+  paused: { bg: '#fffbeb', color: '#d97706', dot: '#f59e0b' },
   default: { bg: '#eff6ff', color: '#2563eb', dot: '#3b82f6' },
 };
 const getStatusStyle = (s: string) => STATUS_COLORS[s?.toLowerCase()] ?? STATUS_COLORS.default;
 
-const SkillTag: React.FC<{ label: string; variant?: 'required' | 'preferred' }> = ({ label, variant = 'required' }) => (
-  <span className={`jd-skill-tag jd-skill-tag--${variant}`}>{label}</span>
-);
+const SkillTag: React.FC<{ label: string; variant?: 'required' | 'preferred' }> = ({
+  label,
+  variant = 'required',
+}) => <span className={`jd-skill-tag jd-skill-tag--${variant}`}>{label}</span>;
 
-const InfoChip: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
+const InfoChip: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({
+  icon,
+  label,
+  value,
+}) => (
   <div className="jd-info-chip">
     <span className="jd-info-chip__icon">{icon}</span>
     <div>
@@ -48,8 +53,8 @@ const InfoChip: React.FC<{ icon: React.ReactNode; label: string; value: string }
 );
 
 const AggScore: React.FC<{ score: number }> = ({ score }) => {
-  const color  = score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626';
-  const bg     = score >= 70 ? '#f0fdf4' : score >= 40 ? '#fffbeb' : '#fef2f2';
+  const color = score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626';
+  const bg = score >= 70 ? '#f0fdf4' : score >= 40 ? '#fffbeb' : '#fef2f2';
   const border = score >= 70 ? '#bbf7d0' : score >= 40 ? '#fde68a' : '#fecaca';
   return (
     <div className="jd-agg-score" style={{ color, background: bg, borderColor: border }}>
@@ -62,32 +67,44 @@ const AggScore: React.FC<{ score: number }> = ({ score }) => {
 const normalizeSkills = (val: string | string[] | undefined): string[] => {
   if (!val) return [];
   if (Array.isArray(val)) return val;
-  try { const p = JSON.parse(val); return Array.isArray(p) ? p : [val]; } catch { return [val]; }
+  try {
+    const p = JSON.parse(val);
+    return Array.isArray(p) ? p : [val];
+  } catch {
+    return [val];
+  }
 };
 
-const MIN_PROGRESS_MS  = 4000;
+const MIN_PROGRESS_MS = 4000;
 const POLL_INTERVAL_MS = 8000;
 
 /* ── Per-version shortlist state ── */
 interface VersionShortlist {
-  entries:       ShortlistEntry[];
-  scoredMap:     Record<string, ScoredCandidate>;
-  notesMap:      Record<string, string>;
-  total:         number;
-  showProgress:  boolean;
+  entries: ShortlistEntry[];
+  scoredMap: Record<string, ScoredCandidate>;
+  notesMap: Record<string, string>;
+  total: number;
+  showProgress: boolean;
   progressStart: number;
-  loaded:        boolean;
-  allEntries?:   ShortlistEntry[];      // All candidates from endpoint
-  allScoredMap?: Record<string, ScoredCandidate>;  // Scores for all candidates
-  showAllCandidates: boolean;      // Whether user chose to view all candidates
-  loadingAll:    boolean;          // Whether currently fetching all candidates
+  loaded: boolean;
+  allEntries?: ShortlistEntry[]; // All candidates from endpoint
+  allScoredMap?: Record<string, ScoredCandidate>; // Scores for all candidates
+  showAllCandidates: boolean; // Whether user chose to view all candidates
+  loadingAll: boolean; // Whether currently fetching all candidates
 }
 
 const emptyVersionShortlist = (showProgress: boolean = false): VersionShortlist => ({
-  entries: [], scoredMap: {}, notesMap: {}, total: 0,
-  showProgress, progressStart: Date.now(), loaded: false,
-  allEntries: undefined, allScoredMap: undefined,
-  showAllCandidates: false, loadingAll: false,
+  entries: [],
+  scoredMap: {},
+  notesMap: {},
+  total: 0,
+  showProgress,
+  progressStart: Date.now(),
+  loaded: false,
+  allEntries: undefined,
+  allScoredMap: undefined,
+  showAllCandidates: false,
+  loadingAll: false,
 });
 
 const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false }) => {
@@ -95,27 +112,29 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
   const isAdmin = currentUser?.role_id === 1 || currentUser?.role === 'admin';
 
   /* ── job state ── */
-  const [job,        setJob]        = useState<JobPost | null>(null);
+  const [job, setJob] = useState<JobPost | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
-  const [jobError,   setJobError]   = useState('');
+  const [jobError, setJobError] = useState('');
 
   /* ── version history: map version number → shortlist state ── */
-  const [versions,       setVersions]       = useState<number[]>([]);
-  const [activeVersion,  setActiveVersion]  = useState<number>(1);
-  const [versionData,    setVersionData]    = useState<Record<number, VersionShortlist>>({});
+  const [versions, setVersions] = useState<number[]>([]);
+  const [activeVersion, setActiveVersion] = useState<number>(1);
+  const [versionData, setVersionData] = useState<Record<number, VersionShortlist>>({});
 
   /* ── version snapshots: map version number → job details at that version ── */
-  const [versionSnapshots, setVersionSnapshots] = useState<Record<number, JobVersionSnapshot | null>>({});
+  const [versionSnapshots, setVersionSnapshots] = useState<
+    Record<number, JobVersionSnapshot | null>
+  >({});
 
   /* ── UI state ── */
   const [selectedCandidate, setSelectedCandidate] = useState<ScoredCandidate | null>(null);
-  const [showCloseConfirm,  setShowCloseConfirm]  = useState(false);
-  const [closing,           setClosing]           = useState(false);
-  const [closeError,        setCloseError]        = useState('');
-  const [closed,            setClosed]            = useState(false);
-  const [showEditModal,     setShowEditModal]      = useState(false);
-  const [showExportModal,   setShowExportModal]   = useState(false);
-  const [exportLoading,     setExportLoading]     = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
+  const [closed, setClosed] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const pollTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const isFirstFetch = useRef<Record<number, boolean>>({});
@@ -138,130 +157,155 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
   }, [jobId]);
 
   /* ── Fetch shortlist for a given version ── */
-  const fetchVersionShortlist = useCallback(async (version: number, jobStatus?: string) => {
-    // Init entry if missing
-    setVersionData((prev) => {
-      if (prev[version]) return prev;
-      // Only show progress if this is a newly created job
-      return { ...prev, [version]: emptyVersionShortlist(isNewJobRef.current) };
-    });
+  const fetchVersionShortlist = useCallback(
+    async (version: number, jobStatus?: string) => {
+      // Init entry if missing
+      setVersionData((prev) => {
+        if (prev[version]) return prev;
+        // Only show progress if this is a newly created job
+        return { ...prev, [version]: emptyVersionShortlist(isNewJobRef.current) };
+      });
 
-    isFirstFetch.current[version] = isFirstFetch.current[version] ?? true;
+      isFirstFetch.current[version] = isFirstFetch.current[version] ?? true;
 
-    try {
-      // Pass version as query param — backend filters shortlist by version
-      const res     = await getShortlistApi(jobId, version);
-      const entries = res.shortlist ?? [];
-      const total   = res.total_candidates ?? entries.length;
+      try {
+        // Pass version as query param — backend filters shortlist by version
+        const res = await getShortlistApi(jobId, version);
+        const entries = res.shortlist ?? [];
+        const total = res.total_candidates ?? entries.length;
 
-      const firstFetch = isFirstFetch.current[version];
-      isFirstFetch.current[version] = false;
-      isNewJobRef.current = false; // Mark as loaded after first fetch
+        const firstFetch = isFirstFetch.current[version];
+        isFirstFetch.current[version] = false;
+        isNewJobRef.current = false; // Mark as loaded after first fetch
 
-      // If no data yet → keep showing progress and poll again
-      if (entries.length === 0) {
-        if (jobStatus === 'closed' || (job?.status?.toLowerCase() === 'closed')) {
-          setVersionData((prev) => ({ ...prev, [version]: { ...prev[version], total: 0, showProgress: false } }));
+        // If no data yet → keep showing progress and poll again
+        if (entries.length === 0) {
+          if (jobStatus === 'closed' || job?.status?.toLowerCase() === 'closed') {
+            setVersionData((prev) => ({
+              ...prev,
+              [version]: { ...prev[version], total: 0, showProgress: false },
+            }));
+            return;
+          }
+          // Still processing — poll again
+          pollTimers.current[version] = setTimeout(
+            () => fetchVersionShortlist(version),
+            POLL_INTERVAL_MS
+          );
           return;
         }
-        // Still processing — poll again
-        pollTimers.current[version] = setTimeout(() => fetchVersionShortlist(version), POLL_INTERVAL_MS);
-        return;
+
+        // Build notes map
+        const notesMap: Record<string, string> = {};
+        entries.forEach((e) => {
+          if (e.recruiter_notes) notesMap[e.candidate_id] = e.recruiter_notes;
+        });
+
+        // Fetch scores
+        const settled = await Promise.allSettled(
+          entries.map((e) => getCandidateScoreApi(jobId, e.candidate_id))
+        );
+        const scoredMap: Record<string, ScoredCandidate> = {};
+        settled.forEach((r) => {
+          if (r.status === 'fulfilled') scoredMap[r.value.candidate_id] = r.value;
+        });
+
+        // Sort by aggregation_score desc
+        const sorted = [...entries].sort(
+          (a, b) =>
+            (scoredMap[b.candidate_id]?.aggregation_score ?? -1) -
+            (scoredMap[a.candidate_id]?.aggregation_score ?? -1)
+        );
+
+        setVersionData((prev) => {
+          const cur = prev[version] ?? emptyVersionShortlist(false);
+          const elapsed = Date.now() - cur.progressStart;
+          const remaining = cur.showProgress ? Math.max(0, MIN_PROGRESS_MS - elapsed) : 0;
+
+          if (remaining > 0) {
+            setTimeout(() => {
+              setVersionData((p) => ({ ...p, [version]: { ...p[version], showProgress: false } }));
+            }, remaining);
+          }
+
+          return {
+            ...prev,
+            [version]: {
+              ...cur,
+              entries: sorted,
+              scoredMap,
+              notesMap,
+              total,
+              showProgress: remaining > 0,
+              progressStart: cur.progressStart,
+              loaded: true,
+            },
+          };
+        });
+      } catch {
+        pollTimers.current[version] = setTimeout(
+          () => fetchVersionShortlist(version),
+          POLL_INTERVAL_MS
+        );
       }
-
-      // Build notes map
-      const notesMap: Record<string, string> = {};
-      entries.forEach((e) => { if (e.recruiter_notes) notesMap[e.candidate_id] = e.recruiter_notes; });
-
-      // Fetch scores
-      const settled = await Promise.allSettled(
-        entries.map((e) => getCandidateScoreApi(jobId, e.candidate_id))
-      );
-      const scoredMap: Record<string, ScoredCandidate> = {};
-      settled.forEach((r) => { if (r.status === 'fulfilled') scoredMap[r.value.candidate_id] = r.value; });
-
-      // Sort by aggregation_score desc
-      const sorted = [...entries].sort((a, b) =>
-        (scoredMap[b.candidate_id]?.aggregation_score ?? -1) -
-        (scoredMap[a.candidate_id]?.aggregation_score ?? -1)
-      );
-
-      setVersionData((prev) => {
-        const cur = prev[version] ?? emptyVersionShortlist(false);
-        const elapsed   = Date.now() - cur.progressStart;
-        const remaining = cur.showProgress ? Math.max(0, MIN_PROGRESS_MS - elapsed) : 0;
-
-        if (remaining > 0) {
-          setTimeout(() => {
-            setVersionData((p) => ({ ...p, [version]: { ...p[version], showProgress: false } }));
-          }, remaining);
-        }
-
-        return {
-          ...prev,
-          [version]: {
-            ...cur,
-            entries: sorted,
-            scoredMap,
-            notesMap,
-            total,
-            showProgress: remaining > 0,
-            progressStart: cur.progressStart,
-            loaded: true,
-          },
-        };
-      });
-    } catch {
-      pollTimers.current[version] = setTimeout(() => fetchVersionShortlist(version), POLL_INTERVAL_MS);
-    }
-  }, [jobId, job?.status]);
+    },
+    [jobId, job?.status]
+  );
 
   /* ── Fetch all candidates (beyond required count) ── */
-  const fetchAllCandidates = useCallback(async (version: number) => {
-    setVersionData((prev) => ({
-      ...prev,
-      [version]: { ...prev[version], loadingAll: true },
-    }));
-
-    try {
-      const res = await getAllShortlistApi(jobId, version);
-      const entries = res.shortlist ?? [];
-
-      // Build notes map for all entries
-      const notesMap: Record<string, string> = {};
-      entries.forEach((e) => { if (e.recruiter_notes) notesMap[e.candidate_id] = e.recruiter_notes; });
-
-      // Fetch scores for all entries
-      const settled = await Promise.allSettled(
-        entries.map((e) => getCandidateScoreApi(jobId, e.candidate_id))
-      );
-      const scoredMap: Record<string, ScoredCandidate> = {};
-      settled.forEach((r) => { if (r.status === 'fulfilled') scoredMap[r.value.candidate_id] = r.value; });
-
-      // Sort by aggregation_score desc
-      const sorted = [...entries].sort((a, b) =>
-        (scoredMap[b.candidate_id]?.aggregation_score ?? -1) -
-        (scoredMap[a.candidate_id]?.aggregation_score ?? -1)
-      );
-
+  const fetchAllCandidates = useCallback(
+    async (version: number) => {
       setVersionData((prev) => ({
         ...prev,
-        [version]: {
-          ...prev[version],
-          allEntries: sorted,
-          allScoredMap: scoredMap,
-          showAllCandidates: true,
-          loadingAll: false,
-        },
+        [version]: { ...prev[version], loadingAll: true },
       }));
-    } catch (err) {
-      console.error('Failed to fetch all candidates:', err);
-      setVersionData((prev) => ({
-        ...prev,
-        [version]: { ...prev[version], loadingAll: false },
-      }));
-    }
-  }, [jobId]);
+
+      try {
+        const res = await getAllShortlistApi(jobId, version);
+        const entries = res.shortlist ?? [];
+
+        // Build notes map for all entries
+        const notesMap: Record<string, string> = {};
+        entries.forEach((e) => {
+          if (e.recruiter_notes) notesMap[e.candidate_id] = e.recruiter_notes;
+        });
+
+        // Fetch scores for all entries
+        const settled = await Promise.allSettled(
+          entries.map((e) => getCandidateScoreApi(jobId, e.candidate_id))
+        );
+        const scoredMap: Record<string, ScoredCandidate> = {};
+        settled.forEach((r) => {
+          if (r.status === 'fulfilled') scoredMap[r.value.candidate_id] = r.value;
+        });
+
+        // Sort by aggregation_score desc
+        const sorted = [...entries].sort(
+          (a, b) =>
+            (scoredMap[b.candidate_id]?.aggregation_score ?? -1) -
+            (scoredMap[a.candidate_id]?.aggregation_score ?? -1)
+        );
+
+        setVersionData((prev) => ({
+          ...prev,
+          [version]: {
+            ...prev[version],
+            allEntries: sorted,
+            allScoredMap: scoredMap,
+            showAllCandidates: true,
+            loadingAll: false,
+          },
+        }));
+      } catch (err) {
+        console.error('Failed to fetch all candidates:', err);
+        setVersionData((prev) => ({
+          ...prev,
+          [version]: { ...prev[version], loadingAll: false },
+        }));
+      }
+    },
+    [jobId]
+  );
 
   /* ── Trigger fetch when active version changes ── */
   useEffect(() => {
@@ -292,7 +336,10 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
   const jobStatusPollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     // Only poll if detail view is open and status is 'created' or 'shortlisted'
-    if (!job || (job.status?.toLowerCase() !== 'created' && job.status?.toLowerCase() !== 'shortlisted')) {
+    if (
+      !job ||
+      (job.status?.toLowerCase() !== 'created' && job.status?.toLowerCase() !== 'shortlisted')
+    ) {
       if (jobStatusPollTimer.current) clearTimeout(jobStatusPollTimer.current);
       return;
     }
@@ -338,11 +385,12 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
 
   /* ── Close job ── */
   const handleClose = async () => {
-    setClosing(true); setCloseError('');
+    setClosing(true);
+    setCloseError('');
     try {
       await closeJobPostApi(jobId);
       setClosed(true);
-      setJob((j) => j ? { ...j, status: 'closed' } : j);
+      setJob((j) => (j ? { ...j, status: 'closed' } : j));
       setShowCloseConfirm(false);
     } catch (err: any) {
       setCloseError(err.response?.data?.detail || 'Failed to close job. Please try again.');
@@ -364,12 +412,12 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
   };
 
   /* ── Ownership ── */
-  const isOwner = currentUser && job && (
-    (currentUser as any).user_id === job.created_by ||
-    (currentUser as any).id      === job.created_by
-  );
+  const isOwner =
+    currentUser &&
+    job &&
+    ((currentUser as any).user_id === job.created_by || (currentUser as any).id === job.created_by);
 
-  const isClosed    = closed || job?.status?.toLowerCase() === 'closed';
+  const isClosed = closed || job?.status?.toLowerCase() === 'closed';
   const statusStyle = job ? getStatusStyle(job.status) : STATUS_COLORS.default;
 
   /* ── Active version's shortlist data ── */
@@ -388,29 +436,31 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
 
   /* ── Generate candidate rows for export ── */
   const generateCandidateRows = () => {
-    return vd?.entries?.map((entry, index) => {
-      const scored = vd.scoredMap[entry.candidate_id];
-      if (!scored) return null;
+    return vd?.entries
+      ?.map((entry, index) => {
+        const scored = vd.scoredMap[entry.candidate_id];
+        if (!scored) return null;
 
-      return {
-        rank: index + 1,
-        name: scored.candidate_name || '',
-        email: scored.candidate_email || '',
-        title: scored.title || '',
-        location: scored.location || '',
-        hardSkills: (scored.hard_skills ?? []).join('; ') || 'N/A',
-        softSkills: (scored.soft_skills ?? []).join('; ') || 'N/A',
-        completion: scored.completion_score ? Math.round(scored.completion_score) : 'N/A',
-        skillMatch: scored.skill_match_score ? Math.round(scored.skill_match_score) : 'N/A',
-        recency: scored.recency_score ? Math.round(scored.recency_score) : 'N/A',
-        ruleBased: scored.rule_based_score ? Math.round(scored.rule_based_score) : 'N/A',
-        aggregated: scored.aggregation_score ? Math.round(scored.aggregation_score) : 'N/A',
-        aiScore: scored.ai_score ? Math.round(scored.ai_score) : 'N/A',
-        confidence: scored.confidence_score ? Math.round(scored.confidence_score) : 'N/A',
-        notes: vd.notesMap[entry.candidate_id] ?? '',
-        linkedin: scored.contact_linkedin_url || 'N/A',
-      };
-    }).filter(Boolean);
+        return {
+          rank: index + 1,
+          name: scored.candidate_name || '',
+          email: scored.candidate_email || '',
+          title: scored.title || '',
+          location: scored.location || '',
+          hardSkills: (scored.hard_skills ?? []).join('; ') || 'N/A',
+          softSkills: (scored.soft_skills ?? []).join('; ') || 'N/A',
+          completion: scored.completion_score ? Math.round(scored.completion_score) : 'N/A',
+          skillMatch: scored.skill_match_score ? Math.round(scored.skill_match_score) : 'N/A',
+          recency: scored.recency_score ? Math.round(scored.recency_score) : 'N/A',
+          ruleBased: scored.rule_based_score ? Math.round(scored.rule_based_score) : 'N/A',
+          aggregated: scored.aggregation_score ? Math.round(scored.aggregation_score) : 'N/A',
+          aiScore: scored.ai_score ? Math.round(scored.ai_score) : 'N/A',
+          confidence: scored.confidence_score ? Math.round(scored.confidence_score) : 'N/A',
+          notes: vd.notesMap[entry.candidate_id] ?? '',
+          linkedin: scored.contact_linkedin_url || 'N/A',
+        };
+      })
+      .filter(Boolean);
   };
 
   /* ── PDF Export handler ── */
@@ -483,7 +533,9 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
         </tr>
       </thead>
       <tbody>
-        ${candidateRows.map((candidate: any, i: number) => `<tr>
+        ${candidateRows
+          .map(
+            (candidate: any, i: number) => `<tr>
           <td>${i + 1}</td>
           <td>${candidate.name}</td>
           <td style="font-size: 10px;">${candidate.email}</td>
@@ -491,14 +543,16 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
           <td>${candidate.location}</td>
           <td style="font-size: 10px;">${candidate.hardSkills}</td>
           <td style="text-align: center; font-weight: bold;">${candidate.aggregated}</td>
-        </tr>`).join('')}
+        </tr>`
+          )
+          .join('')}
       </tbody>
     </table>
   </div>
 
   <div class="footer">
     <p><strong>Notes:</strong> Scores range from 0-100 where higher indicates better fit. Candidates ranked by Aggregated Score.</p>
-    <p><strong>Generated:</strong> ${dateStr} ${timeStr} | <strong>Exported by:</strong> ${currentUser?.first_name || 'User'}</p>
+    <p><strong>Generated:</strong> ${dateStr} ${timeStr} | <strong>Exported by:</strong> ${currentUser?.full_name || 'User'}</p>
   </div>
   
   <script>
@@ -600,8 +654,12 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
       const aggScore = scored.aggregation_score ? Math.round(scored.aggregation_score) : 'N/A';
       const aiScore = scored.ai_score ? Math.round(scored.ai_score) : 'N/A';
       const confidenceScore = scored.confidence_score ? Math.round(scored.confidence_score) : 'N/A';
-      const profileCompletion = scored.completion_score ? Math.round(scored.completion_score) : 'N/A';
-      const skillMatchScore = scored.skill_match_score ? Math.round(scored.skill_match_score) : 'N/A';
+      const profileCompletion = scored.completion_score
+        ? Math.round(scored.completion_score)
+        : 'N/A';
+      const skillMatchScore = scored.skill_match_score
+        ? Math.round(scored.skill_match_score)
+        : 'N/A';
       const recencyScore = scored.recency_score ? Math.round(scored.recency_score) : 'N/A';
       const ruleBasedScore = scored.rule_based_score ? Math.round(scored.rule_based_score) : 'N/A';
       const linkedinUrl = scored.contact_linkedin_url || 'N/A';
@@ -625,11 +683,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
         linkedinUrl,
       ];
 
-      lines.push(
-        row
-          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-          .join(',')
-      );
+      lines.push(row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','));
     });
 
     lines.push('');
@@ -642,7 +696,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
     lines.push('• This report was generated automatically by Talent Finder');
     lines.push('');
     lines.push('EXPORT INFORMATION');
-    lines.push(`Exported by: ${currentUser?.first_name || 'User'}`);
+    lines.push(`Exported by: ${currentUser?.full_name || 'User'}`);
     lines.push(`Export Date: ${dateStr}`);
     lines.push(`Export Time: ${timeStr}`);
     lines.push(`Job ID: ${jobId}`);
@@ -660,15 +714,23 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
     document.body.removeChild(link);
   };
 
-  if (jobLoading) return (
-    <div className="jd-loading"><div className="jd-spinner" /><p>Loading job details…</p></div>
-  );
-  if (jobError || !job) return (
-    <div className="jd-error">
-      <span>!</span><p>{jobError || 'Job not found.'}</p>
-      <button className="jd-back-btn" onClick={onBack}>← Back to jobs</button>
-    </div>
-  );
+  if (jobLoading)
+    return (
+      <div className="jd-loading">
+        <div className="jd-spinner" />
+        <p>Loading job details…</p>
+      </div>
+    );
+  if (jobError || !job)
+    return (
+      <div className="jd-error">
+        <span>!</span>
+        <p>{jobError || 'Job not found.'}</p>
+        <button className="jd-back-btn" onClick={onBack}>
+          ← Back to jobs
+        </button>
+      </div>
+    );
 
   return (
     <div className="jd-root">
@@ -676,7 +738,13 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
       <div className="jd-topbar">
         <button className="jd-back-btn" onClick={onBack}>
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-            <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M19 12H5M12 19l-7-7 7-7"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           Back to Jobs
         </button>
@@ -689,14 +757,30 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
             <div className="jd-header-card__top">
               <div className="jd-job-icon">
                 <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
-                  <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.7"/>
-                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+                  <rect
+                    x="2"
+                    y="7"
+                    width="20"
+                    height="14"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
+                  <path
+                    d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </div>
               <div className="jd-header-card__title-block">
                 <h1>{job.job_title}</h1>
                 <div className="jd-header-card__sub">
-                  <span className="jd-status-badge" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                  <span
+                    className="jd-status-badge"
+                    style={{ background: statusStyle.bg, color: statusStyle.color }}
+                  >
                     <span className="jd-status-dot" style={{ background: statusStyle.dot }} />
                     {job.status}
                   </span>
@@ -705,27 +789,107 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
               </div>
             </div>
             <div className="jd-chips-grid">
-              <InfoChip icon={<svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>} label="Location" value={job.location_preference || '—'} />
-              <InfoChip icon={<svg width="15" height="15" fill="none" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>} label="Job Type" value={job.job_type || '—'} />
-              <InfoChip icon={<svg width="15" height="15" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>} label="Experience" value={`${job.min_experience}–${job.max_experience} years`} />
-              <InfoChip icon={<svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>} label="Shortlist" value={`${job.no_of_candidates_required} candidate${job.no_of_candidates_required !== 1 ? 's' : ''}`} />
+              <InfoChip
+                icon={
+                  <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                    <path
+                      d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    />
+                    <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.8" />
+                  </svg>
+                }
+                label="Location"
+                value={job.location_preference || '—'}
+              />
+              <InfoChip
+                icon={
+                  <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                    <rect
+                      x="2"
+                      y="7"
+                      width="20"
+                      height="14"
+                      rx="2"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    />
+                    <path
+                      d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                }
+                label="Job Type"
+                value={job.job_type || '—'}
+              />
+              <InfoChip
+                icon={
+                  <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+                    <path
+                      d="M12 6v6l4 2"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                }
+                label="Experience"
+                value={`${job.min_experience}–${job.max_experience} years`}
+              />
+              <InfoChip
+                icon={
+                  <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                    <path
+                      d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+                    <path
+                      d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                }
+                label="Shortlist"
+                value={`${job.no_of_candidates_required} candidate${job.no_of_candidates_required !== 1 ? 's' : ''}`}
+              />
             </div>
           </div>
 
           {(() => {
             // For non-latest versions, show snapshotted job details if available
             const latestVer = job.version ?? 1;
-            const isLatest  = activeVersion === latestVer;
-            const snap      = !isLatest ? versionSnapshots[activeVersion] : null;
-            const desc         = snap ? snap.description        : job.description;
-            const reqSkills    = snap ? snap.required_skills    : job.required_skills;
-            const prefSkills   = snap ? snap.preferred_skills   : job.preferred_skills;
-            const edu          = snap ? snap.min_educational_qualifications : job.min_educational_qualifications;
+            const isLatest = activeVersion === latestVer;
+            const snap = !isLatest ? versionSnapshots[activeVersion] : null;
+            const desc = snap ? snap.description : job.description;
+            const reqSkills = snap ? snap.required_skills : job.required_skills;
+            const prefSkills = snap ? snap.preferred_skills : job.preferred_skills;
+            const edu = snap
+              ? snap.min_educational_qualifications
+              : job.min_educational_qualifications;
             return (
               <>
                 <div className="jd-card">
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'.5rem' }}>
-                    <h3 className="jd-card__title" style={{ margin:0 }}>Job Description</h3>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '.5rem',
+                    }}
+                  >
+                    <h3 className="jd-card__title" style={{ margin: 0 }}>
+                      Job Description
+                    </h3>
                     {!isLatest && (
                       <span className="jd-version-snapshot-badge">v{activeVersion} snapshot</span>
                     )}
@@ -739,7 +903,9 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                     <div className="jd-skills-block">
                       <p className="jd-skills-label">Required</p>
                       <div className="jd-skills-wrap">
-                        {normalizeSkills(reqSkills as any).map((s) => <SkillTag key={s} label={s} variant="required" />)}
+                        {normalizeSkills(reqSkills as any).map((s) => (
+                          <SkillTag key={s} label={s} variant="required" />
+                        ))}
                       </div>
                     </div>
                   )}
@@ -747,7 +913,9 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                     <div className="jd-skills-block" style={{ marginTop: '1rem' }}>
                       <p className="jd-skills-label">Preferred</p>
                       <div className="jd-skills-wrap">
-                        {normalizeSkills(prefSkills as any).map((s) => <SkillTag key={s} label={s} variant="preferred" />)}
+                        {normalizeSkills(prefSkills as any).map((s) => (
+                          <SkillTag key={s} label={s} variant="preferred" />
+                        ))}
                       </div>
                     </div>
                   )}
@@ -769,10 +937,20 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
               {!isClosed && (
                 <button className="jd-edit-btn" onClick={() => setShowEditModal(true)}>
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path
+                      d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                   Edit Job
                 </button>
@@ -785,7 +963,12 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
               {isClosed && (
                 <span className="jd-closed-badge">
                   <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                    <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path
+                      d="M18 6 6 18M6 6l12 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
                   </svg>
                   Job Closed
                 </span>
@@ -814,15 +997,26 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                     title="Export candidates"
                   >
                     <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                      <path d="M12 2v12m0 0l-4-4m4 4l4-4M2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path
+                        d="M12 2v12m0 0l-4-4m4 4l4-4M2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     Export
                   </button>
                 )}
                 <div className="jd-shortlist-count">
-                  {vd?.showProgress
-                    ? <div className="jd-spinner jd-spinner--sm" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
-                    : (vd?.total ?? 0)}
+                  {vd?.showProgress ? (
+                    <div
+                      className="jd-spinner jd-spinner--sm"
+                      style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }}
+                    />
+                  ) : (
+                    (vd?.total ?? 0)
+                  )}
                 </div>
               </div>
             </div>
@@ -852,7 +1046,12 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
 
               // Show ProcessingProgress when status is 'created' (until shortlist is fetched)
               if (jobStatus === 'created') {
-                return <ProcessingProgress isVisible={true} totalCandidates={vd?.total > 0 ? vd.total : undefined} />;
+                return (
+                  <ProcessingProgress
+                    isVisible={true}
+                    totalCandidates={vd?.total > 0 ? vd.total : undefined}
+                  />
+                );
               }
 
               // For 'shortlisted' or 'open' status
@@ -861,7 +1060,10 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                 if (!vd || !hasShortlist) {
                   return (
                     <div className="jd-shortlist-loading">
-                      <div className="jd-spinner" style={{ borderColor: 'rgba(37,99,235,.2)', borderTopColor: '#2563eb' }} />
+                      <div
+                        className="jd-spinner"
+                        style={{ borderColor: 'rgba(37,99,235,.2)', borderTopColor: '#2563eb' }}
+                      />
                       <p>Loading candidates...</p>
                     </div>
                   );
@@ -900,7 +1102,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                           })}
                     </div>
 
-                    {(jobStatus === 'open') && (
+                    {jobStatus === 'open' && (
                       <div className="jd-shortlist-actions">
                         {!vd.showAllCandidates ? (
                           <button
@@ -910,7 +1112,10 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                           >
                             {vd.loadingAll ? (
                               <>
-                                <span className="jd-spinner jd-spinner--xs" style={{ marginRight: '0.5rem' }} />
+                                <span
+                                  className="jd-spinner jd-spinner--xs"
+                                  style={{ marginRight: '0.5rem' }}
+                                />
                                 Loading...
                               </>
                             ) : (
@@ -942,8 +1147,18 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
               // Default fallback (e.g., closed or other status)
               return (
                 <div className="jd-shortlist-empty">
-                  <div className="jd-shortlist-empty__icon" style={{ animation: 'spin 2s linear infinite' }}>
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div
+                    className="jd-shortlist-empty__icon"
+                    style={{ animation: 'spin 2s linear infinite' }}
+                  >
+                    <svg
+                      width="48"
+                      height="48"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <circle cx="12" cy="12" r="10" opacity="0.25" />
                       <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
                     </svg>
@@ -982,15 +1197,29 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
           <div className="jd-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="jd-dialog__icon">
               <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.8"/>
-                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.8" />
+                <path
+                  d="M12 8v4M12 16h.01"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
             </div>
             <h3>Close this job?</h3>
-            <p>Closing <strong>{job.job_title}</strong> will stop new candidates from being sourced. This action cannot be undone.</p>
+            <p>
+              Closing <strong>{job.job_title}</strong> will stop new candidates from being sourced.
+              This action cannot be undone.
+            </p>
             {closeError && <div className="jd-dialog__error">{closeError}</div>}
             <div className="jd-dialog__actions">
-              <button className="jd-dialog__cancel" onClick={() => setShowCloseConfirm(false)} disabled={closing}>Cancel</button>
+              <button
+                className="jd-dialog__cancel"
+                onClick={() => setShowCloseConfirm(false)}
+                disabled={closing}
+              >
+                Cancel
+              </button>
               <button className="jd-dialog__confirm" onClick={handleClose} disabled={closing}>
                 {closing ? <span className="jd-btn-spinner" /> : 'Close Job'}
               </button>
@@ -1001,7 +1230,10 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
 
       {/* ── Export Modal ── */}
       {showExportModal && (
-        <div className="jd-export-overlay" onClick={() => !exportLoading && setShowExportModal(false)}>
+        <div
+          className="jd-export-overlay"
+          onClick={() => !exportLoading && setShowExportModal(false)}
+        >
           <div className="jd-export-modal" onClick={(e) => e.stopPropagation()}>
             <div className="jd-export-modal__header">
               <h3>Export Shortlist</h3>
@@ -1017,7 +1249,7 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
 
             <div className="jd-export-modal__content">
               <p className="jd-export-modal__subtitle">Choose export format</p>
-              
+
               <div className="jd-export-options">
                 {/* CSV Option */}
                 <button
@@ -1028,9 +1260,18 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                   }}
                   disabled={exportLoading}
                 >
-                  <div className="jd-export-option__icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                  <div
+                    className="jd-export-option__icon"
+                    style={{ background: '#f0fdf4', color: '#16a34a' }}
+                  >
                     <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
-                      <path d="M12 2v12m0 0l-4-4m4 4l4-4M2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path
+                        d="M12 2v12m0 0l-4-4m4 4l4-4M2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </div>
                   <div className="jd-export-option__text">
@@ -1045,10 +1286,25 @@ const JobDetailPage: React.FC<Props> = ({ jobId, onBack, isNewlyCreated = false 
                   onClick={handleExportPDF}
                   disabled={exportLoading}
                 >
-                  <div className="jd-export-option__icon" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                  <div
+                    className="jd-export-option__icon"
+                    style={{ background: '#fef2f2', color: '#dc2626' }}
+                  >
                     <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
-                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M13 2v7h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path
+                        d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M13 2v7h7"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </div>
                   <div className="jd-export-option__text">
@@ -1080,9 +1336,16 @@ const CandidateRow: React.FC<{
   index: number;
   onClick: () => void;
 }> = ({ entry, scored, note, index, onClick }) => {
-  const name     = scored?.candidate_name ?? null;
-  const title    = scored?.title ?? null;
-  const initials = name ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : '…';
+  const name = scored?.candidate_name ?? null;
+  const title = scored?.title ?? null;
+  const initials = name
+    ? name
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : '…';
   const aggScore = scored?.aggregation_score ?? null;
 
   return (
@@ -1092,7 +1355,9 @@ const CandidateRow: React.FC<{
       onClick={onClick}
       disabled={!scored}
     >
-      <div className={`jd-candidate-avatar ${!scored ? 'jd-candidate-avatar--loading' : ''}`}>{initials}</div>
+      <div className={`jd-candidate-avatar ${!scored ? 'jd-candidate-avatar--loading' : ''}`}>
+        {initials}
+      </div>
       <div className="jd-candidate-info">
         {name ? (
           <>
@@ -1108,16 +1373,38 @@ const CandidateRow: React.FC<{
         {note && (
           <div className="jd-row-note">
             <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+              <path
+                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
             </svg>
             <span>{note.length > 38 ? note.slice(0, 38) + '…' : note}</span>
           </div>
         )}
       </div>
-      {scored ? (aggScore !== null ? <AggScore score={aggScore} /> : null) : <div className="jd-spinner jd-spinner--xs" />}
+      {scored ? (
+        aggScore !== null ? (
+          <AggScore score={aggScore} />
+        ) : null
+      ) : (
+        <div className="jd-spinner jd-spinner--xs" />
+      )}
       <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="jd-candidate-arrow">
-        <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path
+          d="M9 18l6-6-6-6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </button>
   );

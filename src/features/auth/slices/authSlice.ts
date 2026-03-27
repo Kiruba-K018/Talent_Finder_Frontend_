@@ -6,7 +6,6 @@ export interface UserProfile {
   full_name: string;
   role: string;
   role_id: number;
-  [key: string]: any;
 }
 
 interface AuthState {
@@ -19,14 +18,12 @@ interface AuthState {
   error: string | null;
 }
 
-const storedUser = localStorage.getItem('user');
-
 const initialState: AuthState = {
-  accessToken: localStorage.getItem('access_token'),
-  tokenType: localStorage.getItem('token_type'),
-  refreshToken: localStorage.getItem('refresh_token'),
-  isAuthenticated: !!localStorage.getItem('access_token'),
-  user: storedUser ? JSON.parse(storedUser) : null,
+  accessToken: null,
+  tokenType: null,
+  refreshToken: null,
+  isAuthenticated: false,
+  user: null,
   loading: false,
   error: null,
 };
@@ -49,13 +46,9 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refresh_token;
       state.isAuthenticated = true;
       state.error = null;
-      localStorage.setItem('access_token', action.payload.access_token);
-      localStorage.setItem('token_type', action.payload.token_type);
-      localStorage.setItem('refresh_token', action.payload.refresh_token);
     },
     setUser(state, action: PayloadAction<UserProfile>) {
       state.user = action.payload;
-      localStorage.setItem('user', JSON.stringify(action.payload));
     },
     loginFailure(state, action: PayloadAction<string>) {
       state.loading = false;
@@ -69,10 +62,6 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.user = null;
       state.error = null;
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('token_type');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
     },
     clearError(state) {
       state.error = null;
@@ -80,5 +69,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginStart, loginSuccess, loginFailure, logout, clearError, setUser } = authSlice.actions;
+export const { loginStart, loginSuccess, loginFailure, logout, clearError, setUser } =
+  authSlice.actions;
 export default authSlice.reducer;

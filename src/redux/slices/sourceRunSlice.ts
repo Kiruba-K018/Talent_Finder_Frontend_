@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { SourceRunState, SourceRun } from '@types';
 import { apiClient } from '@api';
@@ -10,17 +11,21 @@ const initialState: SourceRunState = {
 };
 
 // Thunks
-export const fetchSourceRun = createAsyncThunk(
-  'sourceRun/fetch',
-  async (jobId: string, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.get(`/source-runs/${jobId}/progress`);
-      return { jobId, data: response.data };
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch source run');
-    }
+export const fetchSourceRun = createAsyncThunk<
+  { jobId: string; data: SourceRun },
+  string,
+  { rejectValue: string }
+>('sourceRun/fetch', async (jobId: string, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.get<SourceRun>(`/source-runs/${jobId}/progress`);
+    return { jobId, data: response.data };
+  } catch (error: unknown) {
+    const message = axios.isAxiosError(error)
+      ? error.response?.data?.error || 'Failed to fetch source run'
+      : 'An unexpected error occurred';
+    return rejectWithValue(message);
   }
-);
+});
 
 const sourceRunSlice = createSlice({
   name: 'sourceRun',
@@ -59,5 +64,6 @@ const sourceRunSlice = createSlice({
   },
 });
 
-export const { startPolling, stopPolling, updateSourceRunStatus, clearError } = sourceRunSlice.actions;
+export const { startPolling, stopPolling, updateSourceRunStatus, clearError } =
+  sourceRunSlice.actions;
 export default sourceRunSlice.reducer;

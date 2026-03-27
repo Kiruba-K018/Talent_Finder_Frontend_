@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Provider } from 'react-redux';
-import { store} from './redux/store';
+import { store } from './redux/store';
 import { useAppSelector, useAppDispatch } from './hooks/hooks';
 import LoginPage from './features/auth/pages/Loginpage';
 import VerifyOtpPage from './features/auth/pages/Verifyotppage';
@@ -24,14 +24,14 @@ const AppInner: React.FC = () => {
   // When job is selected, check if it was recently created
   const handleJobSelect = (jobId: string) => {
     const createdTime = createdJobsRef.current.get(jobId);
-    const isNew = createdTime && (Date.now() - createdTime) < NEW_JOB_WINDOW_MS;
+    const isNew = createdTime && Date.now() - createdTime < NEW_JOB_WINDOW_MS;
     setIsNewlyCreated(!!isNew);
     setSelectedJobId(jobId);
   };
 
   // Subscribe to job creation to track newly created jobs
   const lastCreatedJobId = useAppSelector((s) => (s.jobPost as any).lastCreatedJobId);
-  
+
   useEffect(() => {
     if (lastCreatedJobId) {
       createdJobsRef.current.set(lastCreatedJobId, Date.now());
@@ -53,22 +53,22 @@ const AppInner: React.FC = () => {
         />
       );
     }
-    
+
     // Check role_id from decoded token
-    const roleId : number | string | undefined = user?.role_id;
+    const roleId: number | string | undefined = user?.role_id;
     console.log('App - Current user object:', user);
     console.log('App - role_id:', roleId, 'Type:', typeof roleId);
-    
+
     // Ensure roleId is a number for comparison
     const numericRoleId = typeof roleId === 'number' ? roleId : null;
     console.log('App - Numeric roleId:', numericRoleId);
-    
+
     // Route to admin dashboard if role_id is 1 (admin)
-    if (roleId === "admin" || numericRoleId === 1) {
+    if (roleId === 1 || numericRoleId === 1) {
       console.log('Routing to AdminDashboard (role_id === 1)');
       return <AdminDashboard />;
     }
-    
+
     console.log('Routing to RecruiterDashboard (role_id !== 1)');
     // Route to recruiter dashboard for all other roles
     return <RecruiterDashboard onJobSelect={handleJobSelect} />;

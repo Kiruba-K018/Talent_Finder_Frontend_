@@ -5,6 +5,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   children: React.ReactNode;
+  ariaLabel?: string;
+}
+
+interface SpinnerProps {
+  size?: 'sm' | 'md' | 'lg';
+  'aria-hidden'?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -14,9 +20,11 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   className,
   children,
+  ariaLabel,
   ...props
 }) => {
-  const baseClass = 'font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseClass =
+    'font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variantClass = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700',
@@ -35,20 +43,18 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button
       className={`${baseClass} ${variantClass} ${sizeClass} ${className || ''}`}
+      aria-label={ariaLabel}
+      aria-busy={isLoading}
       disabled={disabled || isLoading}
       {...props}
     >
-      {isLoading && <Spinner size="sm" />}
+      {isLoading && <Spinner size="sm" aria-hidden={true} />}
       {children}
     </button>
   );
 };
 
-interface SpinnerProps {
-  size?: 'sm' | 'md' | 'lg';
-}
-
-const Spinner: React.FC<SpinnerProps> = ({ size = 'md' }) => {
+const Spinner: React.FC<SpinnerProps> = ({ size = 'md', 'aria-hidden': ariaHidden }) => {
   const sizeClass = {
     sm: 'w-4 h-4',
     md: 'w-6 h-6',
@@ -56,6 +62,11 @@ const Spinner: React.FC<SpinnerProps> = ({ size = 'md' }) => {
   }[size];
 
   return (
-    <div className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`} />
+    <div
+      className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`}
+      role="status"
+      aria-hidden={ariaHidden}
+      aria-label="Loading"
+    />
   );
 };

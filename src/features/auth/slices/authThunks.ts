@@ -1,8 +1,8 @@
+import axios from 'axios';
 import { AppDispatch } from '../../../redux/store';
-import { loginStart, loginSuccess, loginFailure, clearError } from './authSlice';
-import { setUser } from './authSlice';
-import { loginApi, forgotPasswordApi, LoginPayload } from '../services/authApi';
-import { decodeToken, getRoleIdFromToken } from '../../../utils/tokenUtils';
+import { loginStart, loginSuccess, loginFailure, logout, setUser, UserProfile } from './authSlice';
+import { loginApi, forgotPasswordApi, LoginPayload, logoutApi } from '../services/authApi';
+import { getRoleIdFromToken } from '../../../utils/tokenUtils';
 import api from '../../../api/axiosInstance';
 
 /**
@@ -21,69 +21,90 @@ const mapRoleToId = (role: string | number | undefined | null): number | null =>
   return null;
 };
 
-export const loginThunk =
-  (payload: LoginPayload) => async (dispatch: AppDispatch) => {
-    dispatch(loginStart());
+export const loginThunk = (payload: LoginPayload) => async (dispatch: AppDispatch) => {
+  dispatch(loginStart());
+  try {
+    const data = await loginApi(payload);
+    dispatch(loginSuccess(data));
+
+    // Decode access token to get role_id
+    const tokenRoleId = getRoleIdFromToken(data.access_token);
+    console.log('Login - Extracted roleId from token:', tokenRoleId);
+
+    // Fetch user profile immediately after login
     try {
-      const data = await loginApi(payload);
-      dispatch(loginSuccess(data));
+      const userRes = await api.get<UserProfile>('/auth/me');
+      console.log('User profile from API:', userRes.data);
 
-      // Decode access token to get role_id
-      const tokenRoleId = getRoleIdFromToken(data.access_token);
-      console.log('Login - Extracted roleId from token:', tokenRoleId);
-
-      // Fetch user profile immediately after login
-      try {
-        const userRes = await api.get<any>('/auth/me');
-        console.log('User profile from API:', userRes.data);
-        
-        // Normalize role_id: if API sent role as string, convert to numeric id
-        let finalRoleId = tokenRoleId;
-        if (!finalRoleId && userRes.data.role) {
-          finalRoleId = mapRoleToId(userRes.data.role);
-          console.log('Mapped role name to numeric ID:', userRes.data.role, '→', finalRoleId);
-        }
-        
-        const userWithRole = {
-          ...userRes.data,
-          role_id: finalRoleId, // Ensure role_id is always numeric
-        };
-        
-        console.log('Dispatching user with role_id:', userWithRole);
-        dispatch(setUser(userWithRole));
-      } catch (apiError) {
-        console.error('Error fetching user profile:', apiError);
-        // non-blocking — dashboard will still load
-        // But ensure we at least have role_id from token
-        if (tokenRoleId !== null) {
-          console.log('Setting user with only role_id from token:', tokenRoleId);
-          dispatch(setUser({
-            role_id: tokenRoleId,
-          } as any));
-        }
+      // Normalize role_id: if API sent role as string, convert to numeric id
+      let finalRoleId = tokenRoleId;
+      if (!finalRoleId && userRes.data.role) {
+        finalRoleId = mapRoleToId(userRes.data.role);
+        console.log('Mapped role name to numeric ID:', userRes.data.role, '→', finalRoleId);
       }
 
-      return { success: true };
-    } catch (err: any) {
-      const message =
-        err.response?.data?.detail ||
-        err.message ||
-        'Login failed. Please try again.';
-      dispatch(loginFailure(message));
-      return { success: false, error: message };
-    }
-  };
+      const userWithRole: UserProfile = {
+        ...userRes.data,
+        role_id: finalRoleId ?? 0, // Ensure role_id is always numeric
+      };
 
-export const forgotPasswordThunk =
-  (email: string) => async (_dispatch: AppDispatch) => {
-    try {
-      const data = await forgotPasswordApi(email);
-      return { success: true, message: data.message };
-    } catch (err: any) {
-      const message =
-        err.response?.data?.detail ||
-        err.message ||
-        'Request failed. Please try again.';
-      return { success: false, error: message };
+      console.log('Dispatching user with role_id:', userWithRole);
+      dispatch(setUser(userWithRole));
+    } catch (apiError) {
+      console.error('Error fetching user profile:', apiError);
+      // non-blocking — dashboard will still load
+      // But ensure we at least have role_id from token
+      if (tokenRoleId !== null) {
+        console.log('Setting user with only role_id from token:', tokenRoleId);
+        dispatch(
+          setUser({
+            user_id: '',
+            email: '',
+            full_name: '',
+            role: '',
+            role_id: tokenRoleId,
+          })
+        );
+      }
     }
-  };
+
+    return { success: true };
+  } catch (err: unknown) {
+    const message =
+      axios.isAxiosError(err) && err.response?.data?.detail
+        ? err.response.data.detail
+        : err instanceof Error
+          ? err.message
+          : 'Login failed. Please try again.';
+    dispatch(loginFailure(message));
+    return { success: false, error: message };
+  }
+};
+
+export const forgotPasswordThunk = (email: string) => async (_dispatch: AppDispatch) => {
+  try {
+    const data = await forgotPasswordApi(email);
+    return { success: true, message: data.message };
+  } catch (err: unknown) {
+    const message =
+      axios.isAxiosError(err) && err.response?.data?.detail
+        ? err.response.data.detail
+        : err instanceof Error
+          ? err.message
+          : 'Request failed. Please try again.';
+    return { success: false, error: message };
+  }
+};
+
+export const logoutThunk = () => async (dispatch: AppDispatch) => {
+  try {
+    await logoutApi();
+    dispatch(logout());
+    return { success: true };
+  } catch (err: any) {
+    console.error('Logout error:', err);
+    // Even if the API call fails, clear local auth state
+    dispatch(logout());
+    return { success: true };
+  }
+};

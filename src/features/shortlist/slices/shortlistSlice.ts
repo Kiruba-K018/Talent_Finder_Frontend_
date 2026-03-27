@@ -1,5 +1,11 @@
+import axios from 'axios';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { ShortlistState, CandidateDetail } from '@types';
+import type {
+  ShortlistState,
+  CandidateDetail,
+  ShortlistListItem,
+  ShortlistListResponse,
+} from '@types';
 import { apiClient } from '@api';
 
 const initialState: ShortlistState = {
@@ -11,47 +17,54 @@ const initialState: ShortlistState = {
 };
 
 // Thunks
-export const fetchShortlist = createAsyncThunk(
-  'shortlist/fetch',
-  async (jobId: string, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.get(`/shortlist/${jobId}`);
-      // Extract shortlist array from response wrapper
-      return response.data.shortlist || [];
-    } catch (error: any) {
-      console.error('Fetch shortlist error:', error);
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch shortlist');
-    }
+export const fetchShortlist = createAsyncThunk<
+  ShortlistListItem[],
+  string,
+  { rejectValue: string }
+>('shortlist/fetch', async (jobId: string, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.get<ShortlistListResponse>(`/shortlist/${jobId}`);
+    return response.data.shortlist || [];
+  } catch (error: unknown) {
+    const message = axios.isAxiosError(error)
+      ? error.response?.data?.error || 'Failed to fetch shortlist'
+      : 'An unexpected error occurred';
+    return rejectWithValue(message);
   }
-);
+});
 
-export const fetchCandidateDetail = createAsyncThunk(
-  'shortlist/fetchCandidate',
-  async ({ jobId, candidateId }: { jobId: string; candidateId: string }, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.get(`/shortlist/${jobId}/${candidateId}`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch candidate details');
-    }
+export const fetchCandidateDetail = createAsyncThunk<
+  CandidateDetail,
+  { jobId: string; candidateId: string },
+  { rejectValue: string }
+>('shortlist/fetchCandidate', async ({ jobId, candidateId }, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.get<CandidateDetail>(`/shortlist/${jobId}/${candidateId}`);
+    return response.data;
+  } catch (error: unknown) {
+    const message = axios.isAxiosError(error)
+      ? error.response?.data?.error || 'Failed to fetch candidate details'
+      : 'An unexpected error occurred';
+    return rejectWithValue(message);
   }
-);
+});
 
-
-
-export const addNote = createAsyncThunk(
-  'shortlist/addNote',
-  async ({ jobId, candidateId, note }: { jobId: string; candidateId: string; note: string }, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.put(`/shortlist/${jobId}/${candidateId}`, {
-        note: note,
-      });
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to add note');
-    }
+export const addNote = createAsyncThunk<
+  void,
+  { jobId: string; candidateId: string; note: string },
+  { rejectValue: string }
+>('shortlist/addNote', async ({ jobId, candidateId, note }, { rejectWithValue }) => {
+  try {
+    await apiClient.put(`/shortlist/${jobId}/${candidateId}`, {
+      note: note,
+    });
+  } catch (error: unknown) {
+    const message = axios.isAxiosError(error)
+      ? error.response?.data?.error || 'Failed to add note'
+      : 'An unexpected error occurred';
+    return rejectWithValue(message);
   }
-);
+});
 
 const shortlistSlice = createSlice({
   name: 'shortlist',
@@ -105,13 +118,12 @@ const shortlistSlice = createSlice({
         state.noteLoading = true;
         state.error = null;
       })
-      .addCase(addNote.fulfilled, (state, action) => {
+      .addCase(addNote.fulfilled, (state) => {
         state.noteLoading = false;
-        // Note updated successfully; note is stored in backend
       })
       .addCase(addNote.rejected, (state, action) => {
         state.noteLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || 'Failed to add note';
       });
   },
 });

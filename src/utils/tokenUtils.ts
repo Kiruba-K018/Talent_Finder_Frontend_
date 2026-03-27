@@ -11,7 +11,6 @@ export interface TokenPayload {
   exp: number;
   jti: string;
   type: 'access' | 'refresh';
-  [key: string]: any;
 }
 
 /**
@@ -41,21 +40,26 @@ export const decodeToken = (token: string): TokenPayload | null => {
       return null;
     }
 
-    // Split token and get payload
     const parts = token.split('.');
     if (parts.length !== 3) {
       console.error('Invalid token format - expected 3 parts');
       return null;
     }
 
-    // Decode payload (base64url to base64)
     const payload = parts[1];
     const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
     const decoded = atob(padded);
-    const parsed = JSON.parse(decoded);
+    const parsed: unknown = JSON.parse(decoded);
 
-    console.log('Decoded token payload:', parsed);
-    return parsed as TokenPayload;
+    const isTokenPayload = (val: unknown): val is TokenPayload => {
+      return typeof val === 'object' && val !== null && 'sub' in val && 'type' in val;
+    };
+
+    if (isTokenPayload(parsed)) {
+      return parsed;
+    }
+
+    return null;
   } catch (error) {
     console.error('Failed to decode token:', error);
     return null;
@@ -76,16 +80,16 @@ export const getRoleIdFromToken = (token: string): number | null => {
 
   // Try role_id field first (numeric)
   let roleId = payload.role_id;
-  
+
   // If role_id is not a number, try mapping role name
   if (!roleId || typeof roleId !== 'number') {
     roleId = payload.role;
     console.log('role_id not numeric, attempting to map role:', roleId);
   }
-  
+
   const numericRoleId = mapRoleNameToId(roleId);
   console.log('Extracted role_id from token:', numericRoleId, '(original:', roleId, ')');
-  
+
   return numericRoleId;
 };
 

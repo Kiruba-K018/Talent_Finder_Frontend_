@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { JobsState, Job } from '@types';
 import { apiClient } from '@api';
@@ -16,12 +17,16 @@ export const fetchAllJobs = createAsyncThunk<Job[], void, { rejectValue: string 
   'jobs/fetchAll',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get('/jobpost/');
-      // Extract job_posts array from response wrapper
-      return response.data.job_posts || response.data;
-    } catch (error: any) {
-      console.error('Fetch jobs error:', error);
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch jobs');
+      const response = await apiClient.get<Job[] | { job_posts: Job[] }>('/jobpost/');
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      return (response.data as { job_posts: Job[] }).job_posts || [];
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Failed to fetch jobs'
+        : 'An unexpected error occurred';
+      return rejectWithValue(message);
     }
   }
 );
@@ -30,10 +35,13 @@ export const fetchJobDetail = createAsyncThunk<Job, string, { rejectValue: strin
   'jobs/fetchDetail',
   async (jobId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get(`/jobpost/${jobId}`);
+      const response = await apiClient.get<Job>(`/jobpost/${jobId}`);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch job');
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Failed to fetch job'
+        : 'An unexpected error occurred';
+      return rejectWithValue(message);
     }
   }
 );
@@ -56,17 +64,15 @@ export const createJob = createAsyncThunk<Job, CreateJobPayload, { rejectValue: 
   'jobs/create',
   async (jobData: CreateJobPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post('/jobpost/', jobData);
+      const response = await apiClient.post<Job>('/jobpost/', jobData);
       return response.data;
-    } catch (error: any) {
-      console.error('Create job error:', error);
-      const errorMsg = 
-        error?.response?.data?.detail ||
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        error?.message ||
-        'Failed to create job';
-      return rejectWithValue(errorMsg);
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail || error.response?.data?.error || 'Failed to create job'
+        : error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred';
+      return rejectWithValue(message);
     }
   }
 );
@@ -80,10 +86,13 @@ export const updateJob = createAsyncThunk<Job, UpdateJobPayload, { rejectValue: 
   'jobs/update',
   async ({ jobId, data }: UpdateJobPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/jobpost/${jobId}`, data);
+      const response = await apiClient.put<Job>(`/jobpost/${jobId}`, data);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to update job');
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Failed to update job'
+        : 'An unexpected error occurred';
+      return rejectWithValue(message);
     }
   }
 );
@@ -92,10 +101,13 @@ export const closeJob = createAsyncThunk<Job, string, { rejectValue: string }>(
   'jobs/close',
   async (jobId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/jobpost/${jobId}/close`, {});
+      const response = await apiClient.put<Job>(`/jobpost/${jobId}/close`, {});
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to close job');
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Failed to close job'
+        : 'An unexpected error occurred';
+      return rejectWithValue(message);
     }
   }
 );

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "target": "ES2020",
+    "ignoreDeprecations": "6.0",
     "useDefineForClassFields": true,
     "lib": [
       "ES2020",
@@ -23,47 +23,21 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     /* Path mapping */
-    "baseUrl": ".",
+    "baseUrl": "src",
     "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@components": [
-        "src/components"
-      ],
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@redux": [
-        "src/redux"
-      ],
-      "@redux/*": [
-        "src/redux/*"
-      ],
-      "@api": [
-        "src/api"
-      ],
-      "@api/*": [
-        "src/api/*"
-      ],
-      "@hooks": [
-        "src/hooks"
-      ],
-      "@hooks/*": [
-        "src/hooks/*"
-      ],
-      "@utils": [
-        "src/utils"
-      ],
-      "@utils/*": [
-        "src/utils/*"
-      ],
-      "@types": [
-        "src/types"
-      ],
-      "@types/*": [
-        "src/types/*"
-      ]
+      "@/*": ["*"],
+      "@components": ["components"],
+      "@components/*": ["components/*"],
+      "@redux": ["redux"],
+      "@redux/*": ["redux/*"],
+      "@api": ["api"],
+      "@api/*": ["api/*"],
+      "@hooks": ["hooks"],
+      "@hooks/*": ["hooks/*"],
+      "@utils": ["utils"],
+      "@utils/*": ["utils/*"],
+      "@types": ["types"],
+      "@types/*": ["types/*"]
     }
   },
   "include": [

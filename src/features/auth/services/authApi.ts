@@ -55,7 +55,27 @@ export interface ResetPasswordPayload {
   new_password: string;
 }
 
-export const resetPasswordApi = async (payload: ResetPasswordPayload): Promise<{ message: string }> => {
+export const resetPasswordApi = async (
+  payload: ResetPasswordPayload
+): Promise<{ message: string }> => {
   const response = await api.post<{ message: string }>('/auth/reset-password', payload);
+  return response.data;
+};
+
+/**
+ * Refresh access token using the refresh token stored in HTTP-only cookie.
+ * The refresh token is automatically sent with the request via cookie.
+ */
+export const refreshAccessTokenApi = async (): Promise<{ access_token: string }> => {
+  const response = await api.post<{ access_token: string }>('/auth/refresh');
+  return response.data;
+};
+
+/**
+ * Logout the current user.
+ * This revokes the refresh token on the server side.
+ */
+export const logoutApi = async (): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/auth/logout');
   return response.data;
 };

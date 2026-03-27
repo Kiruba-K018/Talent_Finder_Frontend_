@@ -9,9 +9,3 @@ export { ScoringProgressModal } from './ScoringProgressModal';
 export { Tooltip } from './Tooltip';
 
 export { Icon } from './Icon';
-
-// Views
-export { JobListView } from './views/JobListView';
-export { JobDetailView } from './views/JobDetailView';
-export { CreateJobView } from './views/CreateJobView';
-export { ShortlistView } from './views/ShortlistView';
